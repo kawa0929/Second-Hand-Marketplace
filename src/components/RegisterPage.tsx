@@ -41,7 +41,7 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
     }
     setIsSending(true);
     try {
-      const response = await fetch('http://localhost:3001/api/send-otp', {
+      const response = await fetch('http://localhost:3001/api/send-otp', { // 👈 檢查這串字
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -102,7 +102,7 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
       const registerData = await registerResponse.json();
 
       if (registerData.success) {
-        alert("註冊成功！資料已寫入 MongoDB！🎉");
+        alert("註冊成功！資料已寫入 Firebase！🎉");
         onLogin();
         onNavigate('home');
       } else {
