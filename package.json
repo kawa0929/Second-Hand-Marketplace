@@ -1,5 +1,5 @@
 {
-  "name": "Second-Hand Marketplace UI Template",
+  "name": "second-hand-marketplace-ui-template",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -60,5 +60,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build"
-  }
+  },
+  "description": "This is a code bundle for Second-Hand Marketplace UI Template. The original project is available at https://www.figma.com/design/pXeCqArBoDK1MaYzBjS70P/Second-Hand-Marketplace-UI-Template.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kawa0929/Second-Hand-Marketplace.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kawa0929/Second-Hand-Marketplace/issues"
+  },
+  "homepage": "https://github.com/kawa0929/Second-Hand-Marketplace#readme"
 }
