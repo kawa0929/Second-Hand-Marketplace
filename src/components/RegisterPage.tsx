@@ -15,10 +15,15 @@ interface RegisterPageProps {
 }
 
 export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: RegisterPageProps) {
+  // --- 1. 新增：準備好所有要存進資料庫的變數 ---
   const [selectedEmoji, setSelectedEmoji] = useState<string>("");
-
-  // --- 新增：用來紀錄 Email 的狀態 ---
+  const [fullname, setFullname] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
+
+  const [userInputCode, setUserInputCode] = useState<string>("");
   const [isSending, setIsSending] = useState<boolean>(false);
 
   useEffect(() => {
@@ -28,13 +33,12 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
     if (onAvatarGenerated) onAvatarGenerated(selected);
   }, [onAvatarGenerated]);
 
-  // --- 新增：呼叫後端發信的函式 ---
+  // 發送驗證信邏輯 (不變)
   const handleSendOTP = async () => {
     if (!email) {
       alert("請先輸入電子郵件！");
       return;
     }
-
     setIsSending(true);
     try {
       const response = await fetch('http://localhost:3001/api/send-otp', {
@@ -42,10 +46,9 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-
       const data = await response.json();
       if (data.success) {
-        alert('驗證碼已寄出！請至您的信箱查看。');
+        alert('驗證碼已模擬發送！請去 VS Code 的終端機(後端)查看。');
       } else {
         alert('發送失敗：' + data.error);
       }
@@ -56,19 +59,65 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- 2. 修改：完成註冊並寫入資料庫的邏輯 ---
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
-    onNavigate('home');
+
+    // 基本檢查
+    if (!userInputCode) {
+      alert("請輸入驗證碼！");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("兩次輸入的密碼不一致，請重新確認！");
+      return;
+    }
+
+    try {
+      // 步驟 A：先驗證驗證碼對不對
+      const verifyResponse = await fetch('http://localhost:3001/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: userInputCode })
+      });
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyData.success) {
+        alert("驗證碼輸入錯誤或已過期，請再試一次。");
+        return; // 驗證碼錯了就停在這裡，不往下執行
+      }
+
+      // 步驟 B：驗證碼對了！我們把所有資料打包丟給後端的 /api/register
+      const registerResponse = await fetch('http://localhost:3001/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullname,
+          phone,
+          email,
+          password,
+          avatarUrl: selectedEmoji // 把選到的 Emoji 當作頭貼存起來
+        })
+      });
+      const registerData = await registerResponse.json();
+
+      if (registerData.success) {
+        alert("註冊成功！資料已寫入 MongoDB！🎉");
+        onLogin();
+        onNavigate('home');
+      } else {
+        alert("註冊失敗：" + registerData.message);
+      }
+
+    } catch (error) {
+      alert("系統發生錯誤，請確認後端伺服器狀態。");
+    }
   };
 
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 py-12">
       <Card className="w-full max-w-md rounded-2xl border-border relative">
-        <button
-          onClick={() => onNavigate('home')}
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors rounded-lg p-1 hover:bg-neutral-100"
-        >
+        <button onClick={() => onNavigate('home')} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors rounded-lg p-1 hover:bg-neutral-100">
           <X className="w-5 h-5" />
         </button>
 
@@ -98,49 +147,31 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
               <span className="text-xs text-muted-foreground">預設頭貼</span>
             </div>
 
+            {/* --- 3. 綁定輸入框的值 (value) 和改變事件 (onChange) --- */}
             {/* 姓名 */}
             <div className="space-y-2">
               <Label htmlFor="fullname">真實姓名</Label>
-              <Input id="fullname" placeholder="請輸入真實姓名" className="rounded-xl h-11 bg-input-background border-0" required />
+              <Input id="fullname" value={fullname} onChange={(e) => setFullname(e.target.value)} placeholder="請輸入真實姓名" className="rounded-xl h-11 bg-input-background border-0" required />
             </div>
 
             {/* 手機 */}
             <div className="space-y-2">
               <Label htmlFor="phone">手機號碼</Label>
-              <Input id="phone" type="tel" placeholder="09xx-xxx-xxx" className="rounded-xl h-11 bg-input-background border-0" required />
+              <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09xx-xxx-xxx" className="rounded-xl h-11 bg-input-background border-0" required />
             </div>
 
-            {/* Email (新增了 onChange 來捕捉輸入) */}
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">電子郵件</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                className="rounded-xl h-11 bg-input-background border-0"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className="rounded-xl h-11 bg-input-background border-0" required />
             </div>
 
-            {/* 驗證碼 (按鈕已綁定 handleSendOTP) */}
+            {/* 驗證碼 */}
             <div className="space-y-2">
               <Label htmlFor="verification">信箱驗證碼</Label>
               <div className="flex gap-2">
-                <Input
-                  id="verification"
-                  placeholder="輸入 6 位數驗證碼"
-                  className="rounded-xl h-11 bg-input-background border-0 flex-1"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-11 rounded-xl px-4 hover:bg-neutral-200"
-                  onClick={handleSendOTP}
-                  disabled={isSending}
-                >
+                <Input id="verification" value={userInputCode} onChange={(e) => setUserInputCode(e.target.value)} placeholder="輸入 6 位數驗證碼" className="rounded-xl h-11 bg-input-background border-0 flex-1" required />
+                <Button type="button" variant="secondary" className="h-11 rounded-xl px-4 hover:bg-neutral-200" onClick={handleSendOTP} disabled={isSending}>
                   {isSending ? "傳送中..." : "發送驗證信"}
                 </Button>
               </div>
@@ -149,12 +180,13 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
             {/* 密碼 */}
             <div className="space-y-2">
               <Label htmlFor="password">設定密碼</Label>
-              <Input id="password" type="password" placeholder="請輸入 8 位以上英數字" className="rounded-xl h-11 bg-input-background border-0" required />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="請輸入 8 位以上英數字" className="rounded-xl h-11 bg-input-background border-0" required />
             </div>
 
+            {/* 確認密碼 */}
             <div className="space-y-2">
               <Label htmlFor="confirm-password">確認密碼</Label>
-              <Input id="confirm-password" type="password" placeholder="請再次輸入密碼" className="rounded-xl h-11 bg-input-background border-0" required />
+              <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="請再次輸入密碼" className="rounded-xl h-11 bg-input-background border-0" required />
             </div>
 
             <div className="flex items-start gap-3 py-2">
