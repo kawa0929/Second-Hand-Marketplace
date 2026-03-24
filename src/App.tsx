@@ -15,12 +15,11 @@ import { AIProcessingPage } from "./components/AIProcessingPage";
 import { AIConfirmationPage } from "./components/AIConfirmationPage";
 import { Toaster } from "./components/ui/sonner";
 import { ForgotPasswordPage } from './components/ForgotPasswordPage';
-// 🌟 1. 引入剛剛寫好的編輯商品頁面
 import { EditProductPage } from "./components/EditProductPage";
 
-// 🌟 2. 在 PageType 加上 'edit-product'
 type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product';
 
+// 🌟 這裡把完整的 AI 假資料補回來了，TypeScript 就不會再報 any[] 錯誤
 const aiProductData = [
   {
     image: "https://images.unsplash.com/photo-1649956736509-f359d191bbcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoZWFkcGhvbmVzJTIwbXVzaWN8ZW58MXx8fHwxNzYyODE5NzI5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
@@ -52,22 +51,23 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [aiGeneratedData, setAiGeneratedData] = useState<any>(null);
-
-  // 🌟 3. 新增一個 State 用來記住「目前要查看或編輯的商品 ID」
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
-
-  // 🌟 新增 State 用來記住「上一頁是哪裡」
   const [previousPage, setPreviousPage] = useState<PageType>('home');
 
-  const handleNavigate = (page: string, productId?: string) => {
-    // 🌟 每次換頁前，把「當下這頁」存成上一頁
-    setPreviousPage(currentPage);
+  const [searchKeyword, setSearchKeyword] = useState("");
 
+  const handleNavigate = (page: string, productId?: string, searchQuery?: string) => {
+    setPreviousPage(currentPage);
     setCurrentPage(page as PageType);
 
-    // 🌟 如果切換頁面時有帶上 productId，就把它存起來！
     if (productId) {
       setCurrentProductId(productId);
+    }
+
+    if (searchQuery !== undefined) {
+      setSearchKeyword(searchQuery);
+    } else if (page !== 'products') {
+      setSearchKeyword("");
     }
   };
 
@@ -91,7 +91,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 🌟 在這裡也把 edit-product 排除，讓編輯畫面維持乾淨，不顯示下方選單 */}
       {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && (
         <Navigation
           currentPage={currentPage}
@@ -113,10 +112,12 @@ export default function App() {
       )}
 
       {currentPage === 'products' && (
-        <ProductListPage onNavigate={handleNavigate} />
+        <ProductListPage
+          onNavigate={handleNavigate}
+          initialSearch={searchKeyword}
+        />
       )}
 
-      {/* 🌟 傳遞 productId 和 previousPage 給商品詳情頁 */}
       {currentPage === 'product-detail' && currentProductId && (
         <ProductDetailPage
           onNavigate={handleNavigate}
@@ -141,7 +142,6 @@ export default function App() {
         <EditProfilePage onNavigate={handleNavigate} />
       )}
 
-      {/* 🌟 4. 新增 EditProductPage 的顯示邏輯，並把 ID 傳給它 */}
       {currentPage === 'edit-product' && currentProductId && (
         <EditProductPage onNavigate={handleNavigate} productId={currentProductId} />
       )}

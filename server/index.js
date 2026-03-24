@@ -337,6 +337,31 @@ app.get('/api/user-stats/:email', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+app.get('/api/products', async (req, res) => {
+    try {
+        const { search } = req.query; // 🌟 接收 query 字串
+        const snapshot = await db.collection('products').orderBy('createdAt', 'desc').get();
+
+        let products = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : null
+        }));
+
+        // 🌟 邏輯：如果前端有傳 search，就過濾標題或描述包含關鍵字的商品
+        if (search) {
+            const keyword = search.toLowerCase();
+            products = products.filter(p =>
+                p.title?.toLowerCase().includes(keyword) ||
+                p.description?.toLowerCase().includes(keyword)
+            );
+        }
+
+        res.status(200).json({ success: true, products });
+    } catch (error) {
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
 
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));
