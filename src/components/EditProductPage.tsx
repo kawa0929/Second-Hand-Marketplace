@@ -181,9 +181,16 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            {/* 🌟 補齊所有分類 */}
                                             <SelectItem value="electronics">電子產品</SelectItem>
-                                            <SelectItem value="fashion">服飾配件</SelectItem>
                                             <SelectItem value="furniture">家具</SelectItem>
+                                            <SelectItem value="fashion">服飾配件</SelectItem>
+                                            <SelectItem value="sports">運動用品</SelectItem>
+                                            <SelectItem value="books">書籍</SelectItem>
+                                            <SelectItem value="toys">玩具</SelectItem>
+                                            <SelectItem value="plants">居家園藝</SelectItem>
+                                            <SelectItem value="kitchen">廚房用品</SelectItem>
+                                            <SelectItem value="idol">偶像周邊</SelectItem>
                                             <SelectItem value="other">其他</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -195,9 +202,12 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            {/* 🌟 補齊極佳 (excellent) */}
                                             <SelectItem value="new">全新</SelectItem>
                                             <SelectItem value="like-new">近全新</SelectItem>
+                                            <SelectItem value="excellent">極佳</SelectItem>
                                             <SelectItem value="good">良好</SelectItem>
+                                            <SelectItem value="fair">尚可</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
