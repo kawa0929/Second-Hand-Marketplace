@@ -211,6 +211,10 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                       <SelectItem value="sports">運動用品</SelectItem>
                       <SelectItem value="books">書籍</SelectItem>
                       <SelectItem value="toys">玩具</SelectItem>
+                      {/* 🌟 補齊了缺少的三個分類 */}
+                      <SelectItem value="plants">居家園藝</SelectItem>
+                      <SelectItem value="kitchen">廚房用品</SelectItem>
+                      <SelectItem value="idol">偶像周邊</SelectItem>
                       <SelectItem value="other">其他</SelectItem>
                     </SelectContent>
                   </Select>
