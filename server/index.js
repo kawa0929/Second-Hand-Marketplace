@@ -61,6 +61,7 @@ app.post('/api/register', async (req, res) => {
             email,
             password: hashedPassword,
             avatarUrl,
+            role: 'user',
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
