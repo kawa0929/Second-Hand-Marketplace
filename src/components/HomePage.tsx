@@ -73,9 +73,11 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    /* 1. 刪除了 bg-neutral-50，讓整體背景透出 CSS 的薰衣草紫 */
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-white border-b border-border">
+      {/* 2. 刪除了 bg-white，讓搜尋區域背景變透明 */}
+      <section className="border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center max-w-3xl mx-auto">
             <h1>輕鬆買賣二手好物</h1>
@@ -86,9 +88,10 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
             <div className="mt-8 flex gap-2 max-w-2xl mx-auto">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                {/* 3. 刪除了 bg-input-background */}
                 <Input 
                   placeholder="搜尋商品..." 
-                  className="pl-10 h-12 rounded-full bg-input-background border-0"
+                  className="pl-10 h-12 rounded-full border-0 shadow-sm"
                 />
               </div>
               <Button 
@@ -116,12 +119,13 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           {categories.map((category) => (
             <Card 
               key={category.name}
+              /* 這裡保留 Card 的背景色由 CSS 變數 --card 控制 */
               className="cursor-pointer hover:shadow-md transition-shadow rounded-2xl border-border"
               onClick={() => onNavigate('products')}
             >
               <CardContent className="p-6 text-center">
-                <div className="mb-2">{category.name}</div>
-                <div className="text-muted-foreground">{category.count} 件商品</div>
+                <div className="mb-2 font-medium">{category.name}</div>
+                <div className="text-muted-foreground text-sm">{category.count} 件商品</div>
               </CardContent>
             </Card>
           ))}
@@ -148,14 +152,14 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                   alt={product.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <button className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-neutral-50 transition-colors">
+                <button className="absolute top-3 right-3 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors">
                   <Heart className="w-4 h-4" />
                 </button>
               </div>
               <CardContent className="p-4">
-                <div className="mb-2">{product.title}</div>
-                <div className="mb-3">{product.price}</div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="mb-1 font-medium">{product.title}</div>
+                <div className="mb-3 text-primary font-bold">{product.price}</div>
+                <div className="flex items-center justify-between gap-2 text-sm">
                   <Badge variant="secondary" className="rounded-full">
                     {product.condition}
                   </Badge>
@@ -201,9 +205,9 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="mb-1">{product.title}</div>
-                  <div className="mb-2">{product.price}</div>
-                  <span className="text-muted-foreground">{product.location}</span>
+                  <div className="mb-1 font-medium truncate">{product.title}</div>
+                  <div className="mb-2 text-primary font-bold">{product.price}</div>
+                  <div className="text-muted-foreground text-sm">{product.location}</div>
                 </div>
               </div>
             </Card>
@@ -212,7 +216,8 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-white border-t border-border">
+      {/* 4. 刪除了 bg-white */}
+      <section className="border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center max-w-2xl mx-auto">
             <h2>立即開始販售</h2>
