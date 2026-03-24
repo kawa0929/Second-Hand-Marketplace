@@ -1,4 +1,5 @@
-import { Settings, MapPin, Calendar, Package, Heart, LogOut, Edit, Receipt } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -11,93 +12,109 @@ interface UserProfilePageProps {
   onLogout: () => void;
 }
 
-const userListings = [
-  {
-    id: "1",
-    title: "復古實木椅",
-    price: "NT$2,550",
-    image: "https://images.unsplash.com/photo-1759643161985-5fcb6dfc9a13?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx2aW50YWdlJTIwZnVybml0dXJlJTIwY2hhaXJ8ZW58MXx8fHwxNzYyODY0NDA4fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    status: "上架中",
-    views: 147,
-  },
-  {
-    id: "5",
-    title: "復古相機組",
-    price: "NT$8,400",
-    image: "https://images.unsplash.com/photo-1530519507795-42213b27dabf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZWNvbmRoYW5kJTIwY2FtZXJhfGVufDF8fHx8MTc2Mjg2OTY5OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    status: "上架中",
-    views: 89,
-  },
-];
+// 先設定好空陣列，但給它一個基本的型別定義，避免下面 map 報錯
+interface ListingItem {
+  id: string;
+  title: string;
+  price: string;
+  image: string;
+  status: string;
+  views: number;
+}
 
-const favorites = [
-  {
-    id: "3",
-    title: "登山自行車",
-    price: "NT$9,600",
-    image: "https://images.unsplash.com/photo-1652640867694-afdac071d881?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiaWN5Y2xlJTIwb3V0ZG9vcnxlbnwxfHx8fDE3NjI4Mzk3MjF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    location: "台中市",
-  },
-  {
-    id: "7",
-    title: "無線耳機",
-    price: "NT$2,850",
-    image: "https://images.unsplash.com/photo-1649956736509-f359d191bbcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoZWFkcGhvbmVzJTIwbXVzaWN8ZW58MXx8fHwxNzYyODE5NzI5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    location: "新竹市",
-  },
-];
+interface FavoriteItem {
+  id: string;
+  title: string;
+  price: string;
+  image: string;
+  location: string;
+}
+
+// 預設為空，等到之後串接後端 API 才會放真實資料進去
+const userListings: ListingItem[] = [];
+const favorites: FavoriteItem[] = [];
 
 export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    } else {
+      onNavigate('login');
+    }
+  }, [onNavigate]);
+
   const handleLogout = () => {
+    localStorage.removeItem('user');
     onLogout();
     onNavigate('home');
   };
 
+  if (!currentUser) return <div className="min-h-screen bg-neutral-50 flex justify-center items-center">載入中...</div>;
+
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
         {/* Profile Header */}
         <Card className="rounded-2xl border-border mb-8">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row gap-6">
+
               <div className="relative">
-                <Avatar className="w-24 h-24">
-                  <AvatarImage src="" />
-                  <AvatarFallback>王</AvatarFallback>
+                <Avatar className="w-24 h-24 text-5xl">
+                  {currentUser.avatarUrl && currentUser.avatarUrl.includes('data:image') ? (
+                    <AvatarImage src={currentUser.avatarUrl} className="object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-neutral-100 border-2 border-dashed border-neutral-300">
+                      {currentUser.avatarUrl || currentUser.fullname.charAt(0)}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
-                <button className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center hover:bg-primary/90 transition-colors">
-                  <Edit className="w-4 h-4 text-primary-foreground" />
-                </button>
               </div>
 
               <div className="flex-1">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
                   <div>
-                    <h2 className="mb-2">王曉民</h2>
-                    <div className="flex flex-wrap gap-3 text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        <span>台北市</span>
-                      </div>
-                      <div className="flex items-center gap-1">
+                    <h2 className="mb-2 font-bold text-2xl flex items-center gap-2">
+                      {currentUser.fullname}
+                      {currentUser.role === 'admin' && (
+                        <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">管理員</Badge>
+                      )}
+                    </h2>
+
+                    <div className="flex flex-row flex-wrap items-center gap-5 text-sm text-muted-foreground mt-2">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <Calendar className="w-4 h-4" />
-                        <span>加入於 2023 年 11 月</span>
+                        <span>
+                          {currentUser.createdAt
+                            ? `加入於 ${new Date(currentUser.createdAt).getFullYear()} 年 ${new Date(currentUser.createdAt).getMonth() + 1} 月`
+                            : "加入於 2026 年 3 月"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <MapPin className="w-4 h-4" />
+                        <span>{currentUser.address || "尚未設定地區"}</span>
                       </div>
                     </div>
                   </div>
+
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="rounded-full"
                       onClick={() => onNavigate('edit-profile')}
                     >
                       <Settings className="w-4 h-4 mr-2" />
                       編輯個人資料
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="rounded-full"
                       onClick={handleLogout}
                     >
@@ -107,8 +124,8 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                   </div>
                 </div>
 
-                <p className="text-muted-foreground mb-6">
-                  熱愛復古物件和永續購物。總是在尋找獨特的單品來增添我的收藏！
+                <p className="text-muted-foreground mb-6 whitespace-pre-wrap">
+                  {currentUser.bio || `哈囉！我是 ${currentUser.fullname}，歡迎來到我的二手賣場。`}
                 </p>
 
                 <div className="flex gap-3 mb-6">
@@ -125,20 +142,20 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
 
                 <div className="grid grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1">24</div>
-                    <div className="text-muted-foreground">刊登商品</div>
+                    <div className="mb-1 font-bold text-lg">{userListings.length}</div>
+                    <div className="text-sm text-muted-foreground">刊登商品</div>
                   </div>
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1">12</div>
-                    <div className="text-muted-foreground">已售出</div>
+                    <div className="mb-1 font-bold text-lg">0</div>
+                    <div className="text-sm text-muted-foreground">已售出</div>
                   </div>
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1">98%</div>
-                    <div className="text-muted-foreground">好評率</div>
+                    <div className="mb-1 font-bold text-lg">0%</div>
+                    <div className="text-sm text-muted-foreground">好評率</div>
                   </div>
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1">152</div>
-                    <div className="text-muted-foreground">評價</div>
+                    <div className="mb-1 font-bold text-lg">0</div>
+                    <div className="text-sm text-muted-foreground">評價</div>
                   </div>
                 </div>
               </div>
@@ -159,10 +176,11 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             </TabsTrigger>
           </TabsList>
 
+          {/* 我的商品區塊 */}
           <TabsContent value="listings" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3>上架中的商品 ({userListings.length})</h3>
-              <Button 
+              <Button
                 className="rounded-full"
                 onClick={() => onNavigate('post')}
               >
@@ -170,80 +188,98 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userListings.map((item) => (
-                <Card 
-                  key={item.id}
-                  className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
-                  onClick={() => onNavigate('product-detail', item.id)}
-                >
-                  <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                    <ImageWithFallback
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <Badge variant="secondary" className="rounded-full">
-                        {item.status}
-                      </Badge>
+            {userListings.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                <Package className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+                <p className="text-muted-foreground">目前還沒有刊登任何商品喔！</p>
+                <Button variant="link" onClick={() => onNavigate('post')} className="mt-2 text-primary">
+                  立刻去刊登一個吧
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userListings.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
+                    onClick={() => onNavigate('product-detail', item.id)}
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                      <ImageWithFallback
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute top-3 right-3">
+                        <Badge variant="secondary" className="rounded-full">
+                          {item.status}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <div className="mb-2">{item.title}</div>
-                    <div className="mb-3">{item.price}</div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>{item.views} 次瀏覽</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 rounded-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                      >
-                        編輯
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    <CardContent className="p-4">
+                      <div className="mb-2 font-medium">{item.title}</div>
+                      <div className="mb-3 font-bold text-primary">{item.price}</div>
+                      <div className="flex items-center justify-between text-muted-foreground text-sm">
+                        <span>{item.views} 次瀏覽</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          編輯
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
+          {/* 收藏區塊 */}
           <TabsContent value="favorites" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3>已收藏的商品 ({favorites.length})</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {favorites.map((item) => (
-                <Card 
-                  key={item.id}
-                  className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
-                  onClick={() => onNavigate('product-detail', item.id)}
-                >
-                  <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                    <ImageWithFallback
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <button 
-                      className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-neutral-50 transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Heart className="w-4 h-4 fill-red-500 text-red-500" />
-                    </button>
-                  </div>
-                  <CardContent className="p-4">
-                    <div className="mb-2">{item.title}</div>
-                    <div className="mb-3">{item.price}</div>
-                    <div className="text-muted-foreground">{item.location}</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {favorites.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                <Heart className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+                <p className="text-muted-foreground">目前還沒有收藏任何商品喔！</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {favorites.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
+                    onClick={() => onNavigate('product-detail', item.id)}
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                      <ImageWithFallback
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <button
+                        className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-neutral-50 transition-colors shadow-sm"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                      >
+                        <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                      </button>
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="mb-2 font-medium">{item.title}</div>
+                      <div className="mb-3 font-bold text-primary">{item.price}</div>
+                      <div className="text-muted-foreground text-sm">{item.location}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

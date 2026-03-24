@@ -107,8 +107,12 @@ app.post('/api/login', async (req, res) => {
             user: {
                 email: userData.email,
                 fullname: userData.fullname,
-                role: userData.role, // 👈 把身分傳給前端，前端才能知道他是 admin 還是 user
-                avatarUrl: userData.avatarUrl
+                role: userData.role, // 把身分傳給前端，前端才能知道他是 admin 還是 user
+                avatarUrl: userData.avatarUrl,
+                address: userData.address, // 順便把這兩個也帶上，確保換電腦登入也能拿到最新資料
+                bio: userData.bio,
+                // 🌟 最關鍵的修改：把 Firebase 的 Timestamp 轉成標準的字串傳給前端
+                createdAt: userData.createdAt ? userData.createdAt.toDate().toISOString() : new Date().toISOString()
             }
         });
 
@@ -144,6 +148,34 @@ app.post('/api/reset-password', async (req, res) => {
 
     } catch (error) {
         console.error('❌ 重設密碼錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 7. 更新個人資料 API
+app.post('/api/update-profile', async (req, res) => {
+    try {
+        const { email, fullname, address, bio, avatarUrl } = req.body;
+
+        const userRef = db.collection('users').doc(email);
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            return res.status(404).json({ success: false, message: '找不到此用戶' });
+        }
+
+        // 更新除了密碼和 role 以外的資料
+        await userRef.update({
+            fullname,
+            address: address || "",
+            bio: bio || "",
+            avatarUrl: avatarUrl || ""
+        });
+
+        console.log(`📝 資料更新成功: ${email}`);
+        res.status(200).json({ success: true, message: '更新成功' });
+
+    } catch (error) {
+        console.error('❌ 更新資料錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
