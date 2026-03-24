@@ -179,6 +179,65 @@ app.post('/api/update-profile', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+// 🌟 8. 刊登商品 API (只需處理文字與圖片網址)
+app.post('/api/post-item', async (req, res) => {
+    try {
+        const { title, description, category, condition, price, location, images, sellerEmail } = req.body;
+
+        const newProduct = {
+            title,
+            description,
+            category,
+            condition,
+            price: Number(price),
+            location,
+            sellerEmail,
+            images, // 這是前端傳來的 ImgBB 網址陣列
+            status: '上架中',
+            views: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        // 直接寫入 Firestore
+        const docRef = await db.collection('products').add(newProduct);
+        console.log(`📦 新商品刊登成功: ${title}`);
+
+        res.status(201).json({ success: true, message: '刊登成功', productId: docRef.id });
+
+    } catch (error) {
+        console.error('❌ 刊登商品錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 9. 撈取特定使用者的所有商品
+app.get('/api/user-products/:email', async (req, res) => {
+    try {
+        const userEmail = req.params.email;
+
+        // 去 products 集合裡面，找 sellerEmail 等於這個信箱的所有商品
+        const snapshot = await db.collection('products').where('sellerEmail', '==', userEmail).get();
+
+        const products = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            products.push({
+                id: doc.id,
+                title: data.title,
+                price: `NT$${data.price.toLocaleString()}`, // 幫價格加上 NT$ 跟千位號
+                image: data.images[0] || "", // 取第一張當封面圖
+                status: data.status,
+                views: data.views || 0,
+                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null
+            });
+        });
+
+        res.status(200).json({ success: true, products });
+
+    } catch (error) {
+        console.error('❌ 撈取商品錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
 
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));

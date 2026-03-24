@@ -12,7 +12,7 @@ interface UserProfilePageProps {
   onLogout: () => void;
 }
 
-// 先設定好空陣列，但給它一個基本的型別定義，避免下面 map 報錯
+// 設定商品型別
 interface ListingItem {
   id: string;
   title: string;
@@ -30,17 +30,29 @@ interface FavoriteItem {
   location: string;
 }
 
-// 預設為空，等到之後串接後端 API 才會放真實資料進去
-const userListings: ListingItem[] = [];
-const favorites: FavoriteItem[] = [];
-
 export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) {
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // 🌟 將商品清單改為 State，準備接收後端資料
+  const [userListings, setUserListings] = useState<ListingItem[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]); // 收藏功能未來再實作
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+      const user = JSON.parse(storedUser);
+      setCurrentUser(user);
+
+      // 🌟 登入後，立刻去後端撈取這個人的商品
+      fetch(`http://localhost:3001/api/user-products/${user.email}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUserListings(data.products);
+          }
+        })
+        .catch(err => console.error("抓取商品失敗:", err));
+
     } else {
       onNavigate('login');
     }
@@ -140,6 +152,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                   </Button>
                 </div>
 
+                {/* 🌟 上方的統計數字也會自動隨著陣列長度改變 */}
                 <div className="grid grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
                     <div className="mb-1 font-bold text-lg">{userListings.length}</div>
