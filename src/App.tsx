@@ -14,8 +14,9 @@ import { AICameraPage } from "./components/AICameraPage";
 import { AIProcessingPage } from "./components/AIProcessingPage";
 import { AIConfirmationPage } from "./components/AIConfirmationPage";
 import { Toaster } from "./components/ui/sonner";
+import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation';
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password';
 
 // Mock AI recognition data for different products
 const aiProductData = [
@@ -139,6 +140,9 @@ export default function App() {
           onNavigate={handleNavigate} 
           productData={aiGeneratedData}
         />
+      )}
+      {currentPage === 'forgot-password' && (
+        <ForgotPasswordPage onNavigate={(page) => setCurrentPage(page as any)} />
       )}
 
       <Toaster />

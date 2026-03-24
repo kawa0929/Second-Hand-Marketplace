@@ -74,5 +74,79 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// 🌟 5. 登入 API
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // A. 去 Firebase 找這個信箱 (Document)
+        const userRef = db.collection('users').doc(email);
+        const doc = await userRef.get();
+
+        // 如果資料庫裡沒有這個信箱
+        if (!doc.exists) {
+            return res.status(400).json({ success: false, message: '找不到這個帳號，請先註冊喔！' });
+        }
+
+        // B. 拿資料庫裡的資料出來，準備比對密碼
+        const userData = doc.data();
+
+        // bcrypt.compare 會自動把前端傳來的明文密碼，跟資料庫裡的亂碼比對
+        const isMatch = await bcrypt.compare(password, userData.password);
+
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: '密碼錯誤！' });
+        }
+
+        // C. 密碼正確！登入成功，把使用者的重要資訊 (不含密碼) 傳回給前端
+        console.log(`🎉 登入成功: ${email} (身分: ${userData.role})`);
+
+        res.status(200).json({
+            success: true,
+            message: '登入成功！',
+            user: {
+                email: userData.email,
+                fullname: userData.fullname,
+                role: userData.role, // 👈 把身分傳給前端，前端才能知道他是 admin 還是 user
+                avatarUrl: userData.avatarUrl
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ 登入發生錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 6. 重設密碼 API
+app.post('/api/reset-password', async (req, res) => {
+    try {
+        const { email, newPassword } = req.body;
+
+        const userRef = db.collection('users').doc(email);
+        const doc = await userRef.get();
+
+        // 檢查有沒有這個人
+        if (!doc.exists) {
+            return res.status(400).json({ success: false, message: '找不到此信箱，請確認是否輸入正確。' });
+        }
+
+        // 把新密碼加密
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // 更新 Firebase 裡面的密碼欄位 (使用 update 而不是 set，才不會蓋掉他的姓名電話)
+        await userRef.update({
+            password: hashedPassword
+        });
+
+        console.log(`🔑 密碼重設成功: ${email}`);
+        res.status(200).json({ success: true, message: '密碼重設成功' });
+
+    } catch (error) {
+        console.error('❌ 重設密碼錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));
