@@ -20,7 +20,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
   const [category, setCategory] = useState("");
   const [condition, setCondition] = useState("");
   const [price, setPrice] = useState("");
-  const [location, setLocation] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +37,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
     }
   }, [aiGeneratedData]);
 
-  // 🌟 手動上傳圖片到 ImgBB
+  // 手動上傳圖片到 ImgBB
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -49,7 +48,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
     }
 
     setIsUploading(true);
-    const IMGBB_API_KEY = "56b4b5dbdd71601bcf28d83010505b19"; // 👈 記得填入你的 Key
+    const IMGBB_API_KEY = "56b4b5dbdd71601bcf28d83010505b19";
 
     try {
       const formData = new FormData();
@@ -95,7 +94,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
       category,
       condition,
       price,
-      location,
+      location: "", // 🌟 保留空字串，防止 Firebase 存入 undefined 導致後端報錯
       images,
       sellerEmail: user.email
     };
@@ -133,7 +132,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <Label className="text-lg font-medium">商品照片</Label>
-                {/* 🌟 你的 AI 智慧上傳按鈕回來啦！ */}
                 <Button
                   type="button"
                   onClick={() => onNavigate('ai-camera')}
@@ -168,7 +166,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
                   </div>
                 ))}
 
-                {/* 手動上傳區塊 */}
                 {images.length < 3 && (
                   <button
                     type="button"
@@ -209,6 +206,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
                       <SelectItem value="furniture">家具</SelectItem>
                       <SelectItem value="fashion">服飾配件</SelectItem>
                       <SelectItem value="sports">運動用品</SelectItem>
+                      <SelectItem value="books">書籍</SelectItem>
+                      <SelectItem value="toys">玩具</SelectItem>
+                      <SelectItem value="other">其他</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -231,20 +231,14 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
             </CardContent>
           </Card>
 
+          {/* 🌟 修改了這裡：把網格拿掉，讓售價欄位單獨顯示 */}
           <Card className="rounded-2xl border-border">
-            <CardContent className="p-6 space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">售價 *</Label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
-                    <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" required />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="location">面交地點 *</Label>
-                  <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="例如：台北市信義區" className="rounded-xl h-11 bg-white border-border" required />
+            <CardContent className="p-6">
+              <div className="space-y-2">
+                <Label htmlFor="price">售價 *</Label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
+                  <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" required />
                 </div>
               </div>
             </CardContent>
