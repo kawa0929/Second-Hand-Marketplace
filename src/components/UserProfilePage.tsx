@@ -12,7 +12,6 @@ interface UserProfilePageProps {
   onLogout: () => void;
 }
 
-// 設定商品型別
 interface ListingItem {
   id: string;
   title: string;
@@ -32,10 +31,16 @@ interface FavoriteItem {
 
 export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) {
   const [currentUser, setCurrentUser] = useState<any>(null);
-
-  // 🌟 將商品清單改為 State，準備接收後端資料
   const [userListings, setUserListings] = useState<ListingItem[]>([]);
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]); // 收藏功能未來再實作
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+
+  // 🌟 新增：用來儲存賣場統計數據
+  const [sellerStats, setSellerStats] = useState({
+    totalProducts: 0,
+    soldCount: 0,
+    ratingRate: 100,
+    reviewCount: 0
+  });
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -43,15 +48,21 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
       const user = JSON.parse(storedUser);
       setCurrentUser(user);
 
-      // 🌟 登入後，立刻去後端撈取這個人的商品
+      // 1. 撈取商品清單
       fetch(`http://localhost:3001/api/user-products/${user.email}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
-            setUserListings(data.products);
-          }
+          if (data.success) setUserListings(data.products);
         })
         .catch(err => console.error("抓取商品失敗:", err));
+
+      // 🌟 2. 撈取賣場統計數據 (好評率、售出數等)
+      fetch(`http://localhost:3001/api/user-stats/${user.email}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setSellerStats(data.stats);
+        })
+        .catch(err => console.error("抓取統計失敗:", err));
 
     } else {
       onNavigate('login');
@@ -77,11 +88,18 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
 
               <div className="relative">
                 <Avatar className="w-24 h-24 text-5xl">
-                  {currentUser.avatarUrl && currentUser.avatarUrl.includes('data:image') ? (
-                    <AvatarImage src={currentUser.avatarUrl} className="object-cover" />
+                  {/* 🌟 統一頭像判斷邏輯 (Emoji 或圖片) */}
+                  {currentUser.avatarUrl ? (
+                    currentUser.avatarUrl.startsWith('http') || currentUser.avatarUrl.includes('data:image') ? (
+                      <AvatarImage src={currentUser.avatarUrl} className="object-cover" />
+                    ) : (
+                      <AvatarFallback className="bg-neutral-100 border-2 border-dashed border-neutral-300">
+                        {currentUser.avatarUrl}
+                      </AvatarFallback>
+                    )
                   ) : (
                     <AvatarFallback className="bg-neutral-100 border-2 border-dashed border-neutral-300">
-                      {currentUser.avatarUrl || currentUser.fullname.charAt(0)}
+                      {currentUser.fullname.charAt(0)}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -115,23 +133,11 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                   </div>
 
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
-                      onClick={() => onNavigate('edit-profile')}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      編輯個人資料
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => onNavigate('edit-profile')}>
+                      <Settings className="w-4 h-4 mr-2" /> 編輯個人資料
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full"
-                      onClick={handleLogout}
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      登出
+                    <Button variant="ghost" size="sm" className="rounded-full" onClick={handleLogout}>
+                      <LogOut className="w-4 h-4 mr-2" /> 登出
                     </Button>
                   </div>
                 </div>
@@ -141,33 +147,27 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                 </p>
 
                 <div className="flex gap-3 mb-6">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => onNavigate('transactions')}
-                  >
-                    <Receipt className="w-4 h-4 mr-2" />
-                    交易紀錄
+                  <Button variant="outline" size="sm" className="rounded-full" onClick={() => onNavigate('transactions')}>
+                    <Receipt className="w-4 h-4 mr-2" /> 交易紀錄
                   </Button>
                 </div>
 
-                {/* 🌟 上方的統計數字也會自動隨著陣列長度改變 */}
+                {/* 🌟 數據統計區塊：現在會跟隨後端 API 自動更新 */}
                 <div className="grid grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1 font-bold text-lg">{userListings.length}</div>
+                    <div className="mb-1 font-bold text-lg">{sellerStats.totalProducts}</div>
                     <div className="text-sm text-muted-foreground">刊登商品</div>
                   </div>
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1 font-bold text-lg">0</div>
+                    <div className="mb-1 font-bold text-lg">{sellerStats.soldCount}</div>
                     <div className="text-sm text-muted-foreground">已售出</div>
                   </div>
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1 font-bold text-lg">0%</div>
+                    <div className="mb-1 font-bold text-lg">{sellerStats.ratingRate}%</div>
                     <div className="text-sm text-muted-foreground">好評率</div>
                   </div>
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
-                    <div className="mb-1 font-bold text-lg">0</div>
+                    <div className="mb-1 font-bold text-lg">{sellerStats.reviewCount}</div>
                     <div className="text-sm text-muted-foreground">評價</div>
                   </div>
                 </div>
@@ -176,70 +176,51 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
           </CardContent>
         </Card>
 
-        {/* Tabs */}
+        {/* 下方的 Tabs 分頁保持不變 */}
         <Tabs defaultValue="listings" className="space-y-6">
           <TabsList className="bg-white border border-border rounded-xl p-1">
             <TabsTrigger value="listings" className="rounded-lg">
-              <Package className="w-4 h-4 mr-2" />
-              我的商品
+              <Package className="w-4 h-4 mr-2" /> 我的商品
             </TabsTrigger>
             <TabsTrigger value="favorites" className="rounded-lg">
-              <Heart className="w-4 h-4 mr-2" />
-              收藏
+              <Heart className="w-4 h-4 mr-2" /> 收藏
             </TabsTrigger>
           </TabsList>
 
-          {/* 我的商品區塊 */}
           <TabsContent value="listings" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3>上架中的商品 ({userListings.length})</h3>
-              <Button
-                className="rounded-full"
-                onClick={() => onNavigate('post')}
-              >
-                新增刊登
-              </Button>
+              <Button className="rounded-full" onClick={() => onNavigate('post')}>新增刊登</Button>
             </div>
 
             {userListings.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-border">
                 <Package className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
                 <p className="text-muted-foreground">目前還沒有刊登任何商品喔！</p>
-                <Button variant="link" onClick={() => onNavigate('post')} className="mt-2 text-primary">
-                  立刻去刊登一個吧
-                </Button>
+                <Button variant="link" onClick={() => onNavigate('post')} className="mt-2 text-primary">立刻去刊登一個吧</Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {userListings.map((item) => (
-                  <Card
-                    key={item.id}
-                    className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
-                    onClick={() => onNavigate('product-detail', item.id)}
-                  >
+                  <Card key={item.id} className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden" onClick={() => onNavigate('product-detail', item.id)}>
                     <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                      <ImageWithFallback
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      <ImageWithFallback src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       <div className="absolute top-3 right-3">
-                        <Badge variant="secondary" className="rounded-full">
-                          {item.status}
-                        </Badge>
+                        <Badge variant="secondary" className="rounded-full">{item.status}</Badge>
                       </div>
                     </div>
                     <CardContent className="p-4">
                       <div className="mb-2 font-medium">{item.title}</div>
-                      <div className="mb-3 font-bold text-primary">{item.price}</div>
+                      <div className="mb-3 font-bold text-primary">NT${Number(item.price.replace('NT$', '').replace(',', '')).toLocaleString()}</div>
                       <div className="flex items-center justify-between text-muted-foreground text-sm">
                         <span>{item.views} 次瀏覽</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 rounded-full"
+                          className="h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600"
                           onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
+                            onNavigate('edit-product', item.id);
                           }}
                         >
                           編輯
@@ -252,47 +233,15 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             )}
           </TabsContent>
 
-          {/* 收藏區塊 */}
+          {/* 收藏分頁保持不變 */}
           <TabsContent value="favorites" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3>已收藏的商品 ({favorites.length})</h3>
             </div>
-
-            {favorites.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-2xl border border-border">
-                <Heart className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
-                <p className="text-muted-foreground">目前還沒有收藏任何商品喔！</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {favorites.map((item) => (
-                  <Card
-                    key={item.id}
-                    className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
-                    onClick={() => onNavigate('product-detail', item.id)}
-                  >
-                    <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                      <ImageWithFallback
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <button
-                        className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-neutral-50 transition-colors shadow-sm"
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        <Heart className="w-4 h-4 fill-red-500 text-red-500" />
-                      </button>
-                    </div>
-                    <CardContent className="p-4">
-                      <div className="mb-2 font-medium">{item.title}</div>
-                      <div className="mb-3 font-bold text-primary">{item.price}</div>
-                      <div className="text-muted-foreground text-sm">{item.location}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <div className="text-center py-12 bg-white rounded-2xl border border-border">
+              <Heart className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+              <p className="text-muted-foreground">目前還沒有收藏任何商品喔！</p>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

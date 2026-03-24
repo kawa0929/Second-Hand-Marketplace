@@ -15,10 +15,12 @@ import { AIProcessingPage } from "./components/AIProcessingPage";
 import { AIConfirmationPage } from "./components/AIConfirmationPage";
 import { Toaster } from "./components/ui/sonner";
 import { ForgotPasswordPage } from './components/ForgotPasswordPage';
+// 🌟 1. 引入剛剛寫好的編輯商品頁面
+import { EditProductPage } from "./components/EditProductPage";
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password';
+// 🌟 2. 在 PageType 加上 'edit-product'
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product';
 
-// Mock AI recognition data for different products
 const aiProductData = [
   {
     image: "https://images.unsplash.com/photo-1649956736509-f359d191bbcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoZWFkcGhvbmVzJTIwbXVzaWN8ZW58MXx8fHwxNzYyODE5NzI5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
@@ -51,8 +53,22 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [aiGeneratedData, setAiGeneratedData] = useState<any>(null);
 
+  // 🌟 3. 新增一個 State 用來記住「目前要查看或編輯的商品 ID」
+  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
+
+  // 🌟 新增 State 用來記住「上一頁是哪裡」
+  const [previousPage, setPreviousPage] = useState<PageType>('home');
+
   const handleNavigate = (page: string, productId?: string) => {
+    // 🌟 每次換頁前，把「當下這頁」存成上一頁
+    setPreviousPage(currentPage);
+
     setCurrentPage(page as PageType);
+
+    // 🌟 如果切換頁面時有帶上 productId，就把它存起來！
+    if (productId) {
+      setCurrentProductId(productId);
+    }
   };
 
   const handleLogin = () => {
@@ -64,24 +80,21 @@ export default function App() {
   };
 
   const handleAICapture = () => {
-    // Navigate to processing page
     setCurrentPage('ai-processing');
   };
 
   const handleAIProcessingComplete = () => {
-    // Select a random product from AI data
     const productData = aiProductData[Math.floor(Math.random() * aiProductData.length)];
     setAiGeneratedData(productData);
-    
-    // Navigate to confirmation page
     setCurrentPage('ai-confirmation');
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && (
-        <Navigation 
-          currentPage={currentPage} 
+      {/* 🌟 在這裡也把 edit-product 排除，讓編輯畫面維持乾淨，不顯示下方選單 */}
+      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && (
+        <Navigation
+          currentPage={currentPage}
           onNavigate={handleNavigate}
           isLoggedIn={isLoggedIn}
         />
@@ -103,12 +116,21 @@ export default function App() {
         <ProductListPage onNavigate={handleNavigate} />
       )}
 
-      {currentPage === 'product-detail' && (
-        <ProductDetailPage onNavigate={handleNavigate} />
+      {/* 🌟 傳遞 productId 和 previousPage 給商品詳情頁 */}
+      {currentPage === 'product-detail' && currentProductId && (
+        <ProductDetailPage
+          onNavigate={handleNavigate}
+          productId={currentProductId}
+          previousPage={previousPage}
+        />
       )}
 
       {currentPage === 'post' && (
-        <PostItemPage onNavigate={handleNavigate} aiGeneratedData={aiGeneratedData} />
+        <PostItemPage
+          onNavigate={handleNavigate}
+          aiGeneratedData={aiGeneratedData}
+          previousPage={previousPage}
+        />
       )}
 
       {currentPage === 'profile' && (
@@ -117,6 +139,11 @@ export default function App() {
 
       {currentPage === 'edit-profile' && (
         <EditProfilePage onNavigate={handleNavigate} />
+      )}
+
+      {/* 🌟 4. 新增 EditProductPage 的顯示邏輯，並把 ID 傳給它 */}
+      {currentPage === 'edit-product' && currentProductId && (
+        <EditProductPage onNavigate={handleNavigate} productId={currentProductId} />
       )}
 
       {currentPage === 'chat' && (
@@ -136,8 +163,8 @@ export default function App() {
       )}
 
       {currentPage === 'ai-confirmation' && aiGeneratedData && (
-        <AIConfirmationPage 
-          onNavigate={handleNavigate} 
+        <AIConfirmationPage
+          onNavigate={handleNavigate}
           productData={aiGeneratedData}
         />
       )}

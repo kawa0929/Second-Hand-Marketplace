@@ -238,6 +238,105 @@ app.get('/api/user-products/:email', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+// 🌟 10. 獲取單一商品資訊 (包含賣家詳細資訊、刊登數量與正確日期格式)
+app.get('/api/product/:id', async (req, res) => {
+    try {
+        const doc = await db.collection('products').doc(req.params.id).get();
+        if (!doc.exists) {
+            return res.status(404).json({ success: false, message: '找不到商品' });
+        }
+
+        const productData = doc.data();
+
+        // 處理日期
+        let formattedDate = null;
+        if (productData.createdAt) {
+            formattedDate = productData.createdAt.toDate().toISOString();
+        }
+
+        // 🌟 賣家資訊預設值 (未來有了評價系統，可以從這裡讀取真實的好評率)
+        let sellerInfo = {
+            fullname: productData.sellerEmail ? productData.sellerEmail.split('@')[0] : "未知賣家",
+            avatarUrl: "",
+            totalProducts: 0,
+            ratingRate: 100, // 預設 100%
+            reviewCount: 0   // 預設 0 則評價
+        };
+
+        if (productData.sellerEmail) {
+            // 1. 去 users 集合找大頭貼跟名字
+            const userSnapshot = await db.collection('users').where('email', '==', productData.sellerEmail).get();
+            if (!userSnapshot.empty) {
+                const userData = userSnapshot.docs[0].data();
+                sellerInfo.fullname = userData.fullname || sellerInfo.fullname;
+                sellerInfo.avatarUrl = userData.avatarUrl || "";
+            }
+
+            // 🌟 2. 去 products 集合「數」這個賣家總共刊登了幾件商品！
+            const productsSnapshot = await db.collection('products').where('sellerEmail', '==', productData.sellerEmail).get();
+            sellerInfo.totalProducts = productsSnapshot.size; // .size 就是資料筆數
+        }
+
+        res.status(200).json({
+            success: true,
+            product: {
+                id: doc.id,
+                ...productData,
+                createdAt: formattedDate,
+                sellerInfo
+            }
+        });
+    } catch (error) {
+        console.error('❌ 獲取商品錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 11. 更新商品資訊 (編輯後存檔用)
+app.put('/api/product/:id', async (req, res) => {
+    try {
+        const { title, description, category, condition, price, images } = req.body;
+
+        const updateData = {
+            title,
+            description,
+            category,
+            condition,
+            price: Number(price), // 確保是數字
+            images,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp() // 紀錄更新時間
+        };
+
+        await db.collection('products').doc(req.params.id).update(updateData);
+        console.log(`📦 商品更新成功: ${title} (ID: ${req.params.id})`);
+
+        res.status(200).json({ success: true, message: '更新成功' });
+    } catch (error) {
+        console.error('❌ 更新商品錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 12. 獲取使用者賣場統計資訊 (給個人資料頁使用)
+app.get('/api/user-stats/:email', async (req, res) => {
+    try {
+        const email = req.params.email;
+
+        // 1. 數商品總數
+        const productsSnapshot = await db.collection('products').where('sellerEmail', '==', email).get();
+        const totalProducts = productsSnapshot.size;
+
+        // 2. 這裡可以預留未來計算好評率的邏輯
+        const stats = {
+            totalProducts,
+            soldCount: 0,      // 未來實作訂單系統後可連動
+            ratingRate: 100,   // 預設 100%
+            reviewCount: 0     // 預設 0
+        };
+
+        res.status(200).json({ success: true, stats });
+    } catch (error) {
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
 
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));

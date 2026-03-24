@@ -11,9 +11,10 @@ import { toast } from "sonner";
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
   aiGeneratedData?: any;
+  previousPage?: string; // 🌟 1. 新增接收上一頁的變數
 }
 
-export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps) {
+export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home' }: PostItemPageProps) {
   const [images, setImages] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -94,7 +95,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
       category,
       condition,
       price,
-      location: "", // 🌟 保留空字串，防止 Firebase 存入 undefined 導致後端報錯
+      location: "", // 保留空字串，防止 Firebase 存入 undefined 導致後端報錯
       images,
       sellerEmail: user.email
     };
@@ -108,6 +109,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
       const data = await response.json();
       if (data.success) {
         toast.success("商品刊登成功！🎉");
+        // 🌟 發布成功後，通常固定回到個人頁面看剛刊登的商品
         onNavigate('profile');
       }
     } catch (error) {
@@ -118,7 +120,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Button variant="ghost" onClick={() => onNavigate('home')} className="mb-6 rounded-full">
+        {/* 🌟 2. 修改左上角的取消按鈕，改為動態返回上一頁 */}
+        <Button variant="ghost" onClick={() => onNavigate(previousPage)} className="mb-6 rounded-full">
           <ChevronLeft className="w-4 h-4 mr-2" /> 取消
         </Button>
 
@@ -231,7 +234,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
             </CardContent>
           </Card>
 
-          {/* 🌟 修改了這裡：把網格拿掉，讓售價欄位單獨顯示 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6">
               <div className="space-y-2">
@@ -245,7 +247,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData }: PostItemPageProps)
           </Card>
 
           <div className="flex gap-4">
-            <Button type="button" variant="outline" size="lg" className="flex-1 rounded-full" onClick={() => onNavigate('home')}>取消</Button>
+            {/* 🌟 3. 修改最下方的取消按鈕，改為動態返回上一頁 */}
+            <Button type="button" variant="outline" size="lg" className="flex-1 rounded-full" onClick={() => onNavigate(previousPage)}>取消</Button>
             <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
               {isUploading ? "圖片上傳中..." : "發布刊登"}
             </Button>
