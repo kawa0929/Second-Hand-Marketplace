@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 interface ProductDetailPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, productId?: string) => void;
   productId: string;
   previousPage?: string;
 }
@@ -218,7 +218,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
-                    {/* 🌟 修改這裡：智慧判斷是圖片還是 Emoji */}
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center font-bold text-lg flex-shrink-0">
                       {sellerAvatar ? (
                         sellerAvatar.startsWith('http') || sellerAvatar.startsWith('data:image') ? (
@@ -240,11 +239,11 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                     className="rounded-full"
                     onClick={() => {
                       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                      // 如果看的是自己的商品，就去 'profile'
+                      // 🌟 解鎖！看是不是自己，如果是自己回 profile，不是就去 seller-profile！
                       if (currentUser.email === product.sellerEmail) {
                         onNavigate('profile');
                       } else {
-                        toast.info("即將推出：其他賣家首頁功能");
+                        onNavigate('seller-profile', product.sellerEmail);
                       }
                     }}
                   >
@@ -252,7 +251,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   </Button>
                 </div>
 
-                {/* 🌟 數據綁定真實後端資料 */}
+                {/* 數據綁定真實後端資料 */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-neutral-50 rounded-xl">
                   <div className="text-center">
                     <div className="mb-1 font-medium text-lg">

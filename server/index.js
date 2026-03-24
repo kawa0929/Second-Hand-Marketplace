@@ -209,7 +209,7 @@ app.post('/api/post-item', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 9. 撈取特定使用者的所有商品
+// 🌟 9. 撈取特定使用者的所有商品 (已加上時間排序)
 app.get('/api/user-products/:email', async (req, res) => {
     try {
         const userEmail = req.params.email;
@@ -217,19 +217,22 @@ app.get('/api/user-products/:email', async (req, res) => {
         // 去 products 集合裡面，找 sellerEmail 等於這個信箱的所有商品
         const snapshot = await db.collection('products').where('sellerEmail', '==', userEmail).get();
 
-        const products = [];
+        let products = [];
         snapshot.forEach(doc => {
             const data = doc.data();
             products.push({
                 id: doc.id,
                 title: data.title,
                 price: `NT$${data.price.toLocaleString()}`, // 幫價格加上 NT$ 跟千位號
-                image: data.images[0] || "", // 取第一張當封面圖
+                image: data.images && data.images.length > 0 ? data.images[0] : "", // 取第一張當封面圖
                 status: data.status,
                 views: data.views || 0,
-                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null
+                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : "1970-01-01T00:00:00.000Z" // 給個預設時間防呆
             });
         });
+
+        // 🌟 關鍵修復：在後端把抓回來的陣列，按照時間「由新到舊 (desc)」重新排序！
+        products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         res.status(200).json({ success: true, products });
 
@@ -315,25 +318,45 @@ app.put('/api/product/:id', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 12. 獲取使用者賣場統計資訊 (給個人資料頁使用)
+// 🌟 12. 獲取使用者賣場統計資訊 (包含姓名、頭貼等基本資料)
 app.get('/api/user-stats/:email', async (req, res) => {
     try {
         const email = req.params.email;
 
-        // 1. 數商品總數
+        // 1. 去 users 集合抓取使用者的基本資料
+        const userRef = db.collection('users').doc(email);
+        const userDoc = await userRef.get();
+
+        // 設定預設值
+        let userInfo = {
+            fullname: email.split('@')[0],
+            avatarUrl: "",
+            createdAt: null
+        };
+
+        // 如果資料庫有這個人，就更新為真實資料
+        if (userDoc.exists) {
+            const data = userDoc.data();
+            userInfo.fullname = data.fullname || userInfo.fullname;
+            userInfo.avatarUrl = data.avatarUrl || "";
+            userInfo.createdAt = data.createdAt ? data.createdAt.toDate().toISOString() : null;
+        }
+
+        // 2. 數商品總數
         const productsSnapshot = await db.collection('products').where('sellerEmail', '==', email).get();
         const totalProducts = productsSnapshot.size;
 
-        // 2. 這裡可以預留未來計算好評率的邏輯
         const stats = {
             totalProducts,
-            soldCount: 0,      // 未來實作訂單系統後可連動
-            ratingRate: 100,   // 預設 100%
-            reviewCount: 0     // 預設 0
+            soldCount: 0,
+            ratingRate: 100,
+            reviewCount: 0
         };
 
-        res.status(200).json({ success: true, stats });
+        // 🌟 把 stats 和 userInfo 一起回傳給前端
+        res.status(200).json({ success: true, stats, userInfo });
     } catch (error) {
+        console.error('❌ 獲取賣家資料錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });

@@ -16,10 +16,12 @@ import { AIConfirmationPage } from "./components/AIConfirmationPage";
 import { Toaster } from "./components/ui/sonner";
 import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { EditProductPage } from "./components/EditProductPage";
+// 🌟 1. 引入剛剛建立的賣家賣場頁面
+import { SellerProfilePage } from "./components/SellerProfilePage";
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product';
+// 🌟 2. 在 PageType 加上 'seller-profile'
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile';
 
-// 🌟 這裡把完整的 AI 假資料補回來了，TypeScript 就不會再報 any[] 錯誤
 const aiProductData = [
   {
     image: "https://images.unsplash.com/photo-1649956736509-f359d191bbcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoZWFkcGhvbmVzJTIwbXVzaWN8ZW58MXx8fHwxNzYyODE5NzI5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
@@ -53,13 +55,13 @@ export default function App() {
   const [aiGeneratedData, setAiGeneratedData] = useState<any>(null);
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
   const [previousPage, setPreviousPage] = useState<PageType>('home');
-
   const [searchKeyword, setSearchKeyword] = useState("");
 
   const handleNavigate = (page: string, productId?: string, searchQuery?: string) => {
     setPreviousPage(currentPage);
     setCurrentPage(page as PageType);
 
+    // 這裡的 productId 在跳轉到 seller-profile 時，會用來當作 sellerEmail
     if (productId) {
       setCurrentProductId(productId);
     }
@@ -91,7 +93,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && (
+      {/* 🌟 3. 在選單隱藏條件裡加上 seller-profile */}
+      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && currentPage !== 'seller-profile' && (
         <Navigation
           currentPage={currentPage}
           onNavigate={handleNavigate}
@@ -123,6 +126,14 @@ export default function App() {
           onNavigate={handleNavigate}
           productId={currentProductId}
           previousPage={previousPage}
+        />
+      )}
+
+      {/* 🌟 4. 新增賣場首頁的路由 */}
+      {currentPage === 'seller-profile' && currentProductId && (
+        <SellerProfilePage
+          onNavigate={handleNavigate}
+          sellerEmail={currentProductId}
         />
       )}
 
