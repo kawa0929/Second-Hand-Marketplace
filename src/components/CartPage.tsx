@@ -7,98 +7,91 @@ import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 interface CartPageProps {
-    onNavigate: (page: string) => void;
+    onNavigate: (page: string, productId?: string) => void;
 }
-
-// 定義購物車商品的格式
+// 配合後端回傳的格式
 interface CartItem {
-    id: string;
+    cartId: string;    // 資料庫裡的文件 ID (email_productId)
+    productId: string;
     title: string;
     price: number;
     quantity: number;
     image: string;
     seller: string;
+    stock: number;
 }
 
 export function CartPage({ onNavigate }: CartPageProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // 🌟 1. 進到購物車時，從資料庫撈取最新商品資料
-    useEffect(() => {
-        const loadCartFromDB = async () => {
-            setIsLoading(true);
-            try {
-                // 從本機暫存 (localStorage) 取得加入購物車的商品 ID 與數量
-                const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    // 🌟 1. 從資料庫讀取該使用者的雲端購物車
+    const fetchCartItems = async () => {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+            onNavigate('login');
+            return;
+        }
+        const user = JSON.parse(userStr);
 
-                if (savedCart.length === 0) {
-                    setCartItems([]);
-                    setIsLoading(false);
-                    return;
-                }
-
-                const fetchedItems: CartItem[] = [];
-
-                // 針對每一個購物車裡的商品 ID，去資料庫抓最新的真實資料
-                for (const item of savedCart) {
-                    const res = await fetch(`http://localhost:3001/api/product/${item.productId}`);
-                    const data = await res.json();
-
-                    if (data.success && data.product) {
-                        fetchedItems.push({
-                            id: data.product.id,
-                            title: data.product.title,
-                            price: Number(data.product.price),
-                            quantity: item.quantity,
-                            image: data.product.images?.[0] || "",
-                            seller: data.product.sellerInfo?.fullname || data.product.sellerEmail?.split('@')[0] || "未知"
-                        });
-                    }
-                }
-                setCartItems(fetchedItems);
-            } catch (error) {
-                toast.error("載入購物車失敗，請檢查網路連線");
-            } finally {
-                setIsLoading(false);
+        try {
+            const res = await fetch(`http://localhost:3001/api/cart/${user.email}`);
+            const data = await res.json();
+            if (data.success) {
+                setCartItems(data.cart);
             }
-        };
+        } catch (error) {
+            toast.error("讀取購物車失敗");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-        loadCartFromDB();
+    useEffect(() => {
+        fetchCartItems();
     }, []);
 
-    // 🌟 輔助函數：更新狀態的同時，也把最新的數量存回 localStorage
-    const updateLocalStorage = (newItems: CartItem[]) => {
-        const saveFormat = newItems.map(item => ({ productId: item.id, quantity: item.quantity }));
-        localStorage.setItem('cart', JSON.stringify(saveFormat));
+    // 🌟 2. 更改數量 (直接與後端同步)
+    const handleUpdateQuantity = async (productId: string, change: number) => {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+
+        try {
+            // 呼叫 add API，傳入 change (1 或 -1)
+            const res = await fetch('http://localhost:3001/api/cart/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: user.email,
+                    productId: productId,
+                    quantity: change
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // 成功後重新抓取最新資料，確保前端與資料庫一致
+                fetchCartItems();
+            }
+        } catch (error) {
+            toast.error("更新數量失敗");
+        }
     };
 
-    // 增加數量
-    const increaseQuantity = (id: string) => {
-        setCartItems(items => {
-            const newItems = items.map(item => item.id === id ? { ...item, quantity: item.quantity + 1 } : item);
-            updateLocalStorage(newItems);
-            return newItems;
-        });
-    };
-
-    // 減少數量
-    const decreaseQuantity = (id: string) => {
-        setCartItems(items => {
-            const newItems = items.map(item => item.id === id && item.quantity > 1 ? { ...item, quantity: item.quantity - 1 } : item);
-            updateLocalStorage(newItems);
-            return newItems;
-        });
-    };
-
-    // 移除商品
-    const removeItem = (id: string) => {
-        setCartItems(items => {
-            const newItems = items.filter(item => item.id !== id);
-            updateLocalStorage(newItems);
-            return newItems;
-        });
-        toast.success("已將商品移出購物車");
+    // 🌟 3. 移除商品 (從資料庫刪除)
+    const removeItem = async (cartId: string) => {
+        try {
+            const res = await fetch(`http://localhost:3001/api/cart/${cartId}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) {
+                setCartItems(prev => prev.filter(item => item.cartId !== cartId));
+                toast.success("已從雲端購物車移除");
+            }
+        } catch (error) {
+            toast.error("移除失敗");
+        }
     };
 
     // 計算金額
@@ -111,17 +104,16 @@ export function CartPage({ onNavigate }: CartPageProps) {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
                 <div className="flex items-center gap-4 mb-8">
-                    <Button variant="ghost" onClick={() => onNavigate('products')} className="rounded-full">
+                    <Button variant="ghost" onClick={() => onNavigate('home')} className="rounded-full">
                         <ChevronLeft className="w-4 h-4 mr-2" /> 繼續購物
                     </Button>
                     <h1 className="text-2xl font-bold">我的購物車</h1>
                 </div>
 
-                {/* 🌟 載入中狀態 */}
                 {isLoading ? (
                     <div className="text-center py-32 bg-white rounded-3xl border border-border flex flex-col items-center">
                         <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-                        <p className="text-muted-foreground font-medium">正在連線資料庫讀取商品...</p>
+                        <p className="text-muted-foreground font-medium">正在同步雲端購物車...</p>
                     </div>
                 ) : cartItems.length === 0 ? (
                     <div className="text-center py-32 bg-white rounded-3xl border border-border">
@@ -136,19 +128,21 @@ export function CartPage({ onNavigate }: CartPageProps) {
                     <div className="grid lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-4">
                             {cartItems.map((item) => (
-                                <Card key={item.id} className="rounded-2xl border-border bg-white overflow-hidden">
+                                <Card key={item.cartId} className="rounded-2xl border-border bg-white overflow-hidden">
                                     <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-neutral-100 flex-shrink-0 border border-border">
+                                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-neutral-100 flex-shrink-0 border border-border cursor-pointer" onClick={() => onNavigate('product-detail', item.productId)}>
                                             <ImageWithFallback src={item.image} alt={item.title} className="w-full h-full object-cover" />
                                         </div>
 
                                         <div className="flex-1 w-full">
                                             <div className="flex justify-between items-start mb-1">
                                                 <div>
-                                                    <h3 className="font-bold text-lg">{item.title}</h3>
+                                                    <h3 className="font-bold text-lg cursor-pointer hover:text-primary transition-colors" onClick={() => onNavigate('product-detail', item.productId)}>
+                                                        {item.title}
+                                                    </h3>
                                                     <p className="text-sm text-muted-foreground">賣家：{item.seller}</p>
                                                 </div>
-                                                <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-red-500 rounded-full" onClick={() => removeItem(item.id)}>
+                                                <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-red-500 rounded-full" onClick={() => removeItem(item.cartId)}>
                                                     <Trash2 className="w-5 h-5" />
                                                 </Button>
                                             </div>
@@ -161,7 +155,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                                 <div className="flex items-center border border-border rounded-full p-1 bg-neutral-50">
                                                     <button
                                                         className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all disabled:opacity-50"
-                                                        onClick={() => decreaseQuantity(item.id)}
+                                                        onClick={() => handleUpdateQuantity(item.productId, -1)}
                                                         disabled={item.quantity <= 1}
                                                     >
                                                         <Minus className="w-4 h-4" />
@@ -169,7 +163,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                                     <span className="w-10 text-center font-medium">{item.quantity}</span>
                                                     <button
                                                         className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all"
-                                                        onClick={() => increaseQuantity(item.id)}
+                                                        onClick={() => handleUpdateQuantity(item.productId, 1)}
                                                     >
                                                         <Plus className="w-4 h-4" />
                                                     </button>
@@ -207,7 +201,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                     <Button
                                         size="lg"
                                         className="w-full rounded-full text-lg h-14"
-                                        onClick={() => toast.info("🚀 即將前往結帳頁面")}
+                                        onClick={() => toast.info("🚀 即將推出結帳功能")}
                                     >
                                         前往結帳
                                     </Button>

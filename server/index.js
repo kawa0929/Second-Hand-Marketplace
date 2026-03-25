@@ -461,6 +461,82 @@ app.get('/api/favorites/check', async (req, res) => {
     const doc = await db.collection('favorites').doc(favId).get();
     res.json({ isFavorite: doc.exists });
 });
+// 🌟 19. 加入/更新購物車 (若商品已在購物車則增加數量)
+app.post('/api/cart/add', async (req, res) => {
+    try {
+        const { email, productId, quantity } = req.body;
+        const cartId = `${email}_${productId}`;
+        const cartRef = db.collection('cart').doc(cartId);
+        const doc = await cartRef.get();
+
+        if (doc.exists) {
+            // 如果已經在購物車，累加數量
+            const currentQty = doc.data().quantity || 0;
+            await cartRef.update({
+                quantity: currentQty + quantity,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            res.status(200).json({ success: true, message: '已更新購物車數量' });
+        } else {
+            // 如果不在購物車，新增一筆
+            await cartRef.set({
+                userEmail: email,
+                productId: productId,
+                quantity: quantity,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            res.status(200).json({ success: true, message: '已加入購物車' });
+        }
+    } catch (error) {
+        console.error('❌ 加入購物車錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
+// 🌟 20. 撈取使用者的購物車清單
+app.get('/api/cart/:email', async (req, res) => {
+    try {
+        const userEmail = req.params.email;
+        const snapshot = await db.collection('cart').where('userEmail', '==', userEmail).get();
+
+        if (snapshot.empty) {
+            return res.status(200).json({ success: true, cart: [] });
+        }
+
+        const cartItems = [];
+        for (const doc of snapshot.docs) {
+            const cartData = doc.data();
+            const productDoc = await db.collection('products').doc(cartData.productId).get();
+
+            if (productDoc.exists) {
+                const p = productDoc.data();
+                cartItems.push({
+                    cartId: doc.id, // 用於前端刪除
+                    productId: productDoc.id,
+                    title: p.title,
+                    price: p.price,
+                    image: p.images?.[0] || "",
+                    quantity: cartData.quantity,
+                    stock: p.stock || 1
+                });
+            }
+        }
+        res.status(200).json({ success: true, cart: cartItems });
+    } catch (error) {
+        console.error('❌ 獲取購物車錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
+// 🌟 21. 從購物車移除商品
+app.delete('/api/cart/:cartId', async (req, res) => {
+    try {
+        await db.collection('cart').doc(req.params.cartId).delete();
+        res.status(200).json({ success: true, message: '已從購物車移除' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: '移除失敗' });
+    }
+});
 
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));

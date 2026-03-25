@@ -144,7 +144,8 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     onNavigate('chat');
   };
 
-  const handleAddToCart = () => {
+  // 🌟 修改後的加入購物車 (資料庫同步版)
+  const handleAddToCart = async () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
       toast.error("請先登入才能加入購物車喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
@@ -155,17 +156,23 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
 
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existingItem = savedCart.find((item: any) => item.productId === productId);
-
-    if (existingItem) {
-      existingItem.quantity += 1;
-    } else {
-      savedCart.push({ productId: productId, quantity: 1 });
+    try {
+      const res = await fetch('http://localhost:3001/api/cart/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentUser.email,
+          productId: productId,
+          quantity: 1
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("🛒 已加入雲端購物車！");
+      }
+    } catch (error) {
+      toast.error("加入購物車失敗，請檢查網路");
     }
-
-    localStorage.setItem('cart', JSON.stringify(savedCart));
-    toast.success("🛒 已加入購物車！");
   };
 
   const handleCheckoutClick = () => {
@@ -292,7 +299,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <span className="font-medium">{displayCategory}</span>
                 </div>
 
-                {/* 🌟 數量文字修正為黑色 */}
+                {/* 🌟 數量文字修正為黑色 (拿掉 text-primary) */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">商品數量</span>
                   <span className="font-medium">{product.stock || 1}</span>
