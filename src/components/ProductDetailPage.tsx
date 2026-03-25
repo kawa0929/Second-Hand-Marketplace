@@ -1,4 +1,4 @@
-import { Heart, Share2, MessageCircle, ChevronLeft, ShoppingCart, ShoppingBag } from "lucide-react";
+import { Heart, Share2, MessageCircle, ChevronLeft, ShoppingCart, ShoppingBag, Edit } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -106,7 +106,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     }
   };
 
-  // 🌟 修改後的收藏切換功能 (加入防呆)
   const handleFavoriteToggle = async () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -114,13 +113,11 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
 
-    // 🛑 防呆 1：下架商品不可收藏
     if (product.status === '已下架') {
       toast.error("此商品已下架，無法加入收藏喔！", { style: { background: '#4b5563', color: '#fff', border: 'none' } });
       return;
     }
 
-    // 🛑 防呆 2：自己的商品不可收藏
     if (currentUser.email === product.sellerEmail) {
       toast.error("這是您自己刊登的商品，不需要收藏啦！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
       return;
@@ -209,6 +206,10 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const sellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
   const sellerAvatar = product.sellerInfo?.avatarUrl || "";
 
+  // 🌟 判斷當前使用者是不是賣家本人
+  const activeUser = getCurrentUser();
+  const isSeller = activeUser && activeUser.email === product.sellerEmail;
+
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -249,7 +250,9 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="secondary" className="rounded-full">{displayCategory}</Badge>
                     <Badge variant="outline" className="rounded-full">{displayCondition}</Badge>
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 rounded-full">{product.status || '上架中'}</Badge>
+                    <Badge variant={product.status === '已下架' ? 'outline' : 'default'} className={`rounded-full ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : 'bg-green-600 hover:bg-green-700'}`}>
+                      {product.status || '上架中'}
+                    </Badge>
                   </div>
                   <h1 className="mb-2 text-3xl font-bold">{product.title}</h1>
                 </div>
@@ -258,7 +261,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                     <Share2 className="w-4 h-4" />
                   </Button>
 
-                  {/* 收藏按鈕 */}
                   <Button
                     variant="outline"
                     size="icon"
@@ -291,7 +293,21 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
             <Separator />
 
             <div>
-              <h3 className="mb-3 font-bold text-lg">商品描述</h3>
+              {/* 🌟 加入了 flex 排版與專屬的編輯按鈕 */}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-lg">商品描述</h3>
+                {isSeller && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:text-primary/80 hover:bg-primary/10 rounded-full h-8 px-3"
+                    onClick={() => onNavigate('edit-product', productId)}
+                  >
+                    <Edit className="w-4 h-4 mr-1.5" />
+                    編輯商品
+                  </Button>
+                )}
+              </div>
               <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{product.description}</p>
             </div>
 
@@ -343,8 +359,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                     size="sm"
                     className="rounded-full"
                     onClick={() => {
-                      const currentUser = getCurrentUser();
-                      if (currentUser && currentUser.email === product.sellerEmail) {
+                      if (isSeller) {
                         onNavigate('profile');
                       } else {
                         onNavigate('seller-profile', product.sellerEmail);
