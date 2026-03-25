@@ -1,4 +1,4 @@
-import { Upload, X, ChevronLeft, Sparkles } from "lucide-react";
+import { Upload, X, ChevronLeft, Sparkles, Plus, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -14,15 +14,26 @@ interface PostItemPageProps {
   previousPage?: string;
 }
 
+// 🌟 定義規格的資料格式
+interface Variation {
+  id: string;
+  name: string;
+  price: string;
+  stock: string;
+}
+
 export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home' }: PostItemPageProps) {
   const [images, setImages] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [condition, setCondition] = useState("");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("1");
   const [isUploading, setIsUploading] = useState(false);
+
+  // 🌟 取代單一 price 和 stock，改用陣列管理
+  const [variations, setVariations] = useState<Variation[]>([
+    { id: Date.now().toString(), name: "單一款式", price: "", stock: "1" }
+  ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,8 +44,11 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setDescription(aiGeneratedData.description || "");
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
-      setPrice(aiGeneratedData.price || "");
-      setStock("1");
+
+      // AI 生成如果有價格，套用到第一個規格
+      if (aiGeneratedData.price) {
+        setVariations([{ id: Date.now().toString(), name: "單一款式", price: aiGeneratedData.price.toString(), stock: "1" }]);
+      }
       toast.success("✨ 商品資訊已自動填入！");
     }
   }, [aiGeneratedData]);
@@ -80,17 +94,35 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setImages(images.filter((_, i) => i !== index));
   };
 
-  // 🌟 強化版防呆驗證
+  // 🌟 規格操作函式
+  const addVariation = () => {
+    if (variations.length >= 10) {
+      toast.error("最多只能新增 10 種規格喔！");
+      return;
+    }
+    setVariations([...variations, { id: Date.now().toString(), name: "", price: "", stock: "1" }]);
+  };
+
+  const removeVariation = (id: string) => {
+    if (variations.length === 1) {
+      toast.error("至少要保留一個規格喔！");
+      return;
+    }
+    setVariations(variations.filter(v => v.id !== id));
+  };
+
+  const updateVariation = (id: string, field: keyof Variation, value: string) => {
+    setVariations(variations.map(v => v.id === id ? { ...v, [field]: value } : v));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. 照片驗證
+    // 基本驗證
     if (images.length === 0) {
       toast.error("請至少上傳一張商品照片！");
       return;
     }
-
-    // 2. 名稱驗證
     if (!title.trim()) {
       toast.error("請填寫商品名稱！");
       return;
@@ -99,8 +131,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       toast.error("商品名稱不可超過 60 個字！");
       return;
     }
-
-    // 3. 描述驗證
     if (!description.trim()) {
       toast.error("請填寫商品描述！");
       return;
@@ -113,8 +143,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       toast.error("商品描述不可超過 3000 個字！");
       return;
     }
-
-    // 4. 下拉選單驗證
     if (!category) {
       toast.error("請選擇商品分類！");
       return;
@@ -124,27 +152,40 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       return;
     }
 
-    // 5. 售價驗證
-    if (!price || Number(price) <= 0) {
-      toast.error("請輸入有效的商品售價！");
-      return;
-    }
-
-    // 6. 數量驗證
-    if (!stock || parseInt(stock) < 1 || isNaN(parseInt(stock))) {
-      toast.error("商品數量至少需要 1 件！");
-      return;
+    // 🌟 規格驗證
+    for (let i = 0; i < variations.length; i++) {
+      const v = variations[i];
+      if (!v.name.trim()) {
+        toast.error(`請填寫第 ${i + 1} 個規格的名稱！`);
+        return;
+      }
+      if (!v.price || Number(v.price) <= 0) {
+        toast.error(`請填寫第 ${i + 1} 個規格的有效售價！`);
+        return;
+      }
+      if (!v.stock || parseInt(v.stock) < 1 || isNaN(parseInt(v.stock))) {
+        toast.error(`請填寫第 ${i + 1} 個規格的數量 (至少 1)！`);
+        return;
+      }
     }
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+    // 🌟 整理要傳給後端的資料格式
     const postData = {
       title,
       description,
       category,
       condition,
-      price: Number(price),
-      stock: parseInt(stock),
+      // 為了相容列表頁展示，以第一個規格的價格為代表價，並計算總庫存
+      price: Number(variations[0].price),
+      stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0),
+      // 新增 variations 陣列傳給後端
+      variations: variations.map(v => ({
+        name: v.name.trim(),
+        price: Number(v.price),
+        stock: parseInt(v.stock)
+      })),
       location: "",
       images,
       sellerEmail: user.email
@@ -178,8 +219,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
           <p className="text-muted-foreground mt-2">填寫以下資訊以建立您的商品刊登</p>
         </div>
 
-        {/* 🌟 移除 form 標籤預設的驗證行為，交由 handleSubmit 處理 */}
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          {/* 照片區塊 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -234,6 +275,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
+          {/* 基本資訊區塊 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
@@ -246,7 +288,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   maxLength={60}
-                  placeholder="例如：復古實木椅"
+                  placeholder="請輸入商品名稱" // 🌟 已移除例如的文字
                   className="rounded-xl h-11 bg-white border-border"
                 />
               </div>
@@ -306,29 +348,66 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
+          {/* 🌟 規格與售價動態區塊 */}
           <Card className="rounded-2xl border-border">
-            <CardContent className="p-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">售價 <span className="text-red-500">*</span></Label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
-                    <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" />
-                  </div>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between border-b pb-4 mb-4">
+                <div>
+                  <Label className="text-lg font-medium">款式規格與售價 <span className="text-red-500">*</span></Label>
+                  <p className="text-sm text-muted-foreground mt-1">若有多款商品（如小卡 A 款、B 款），請點擊新增規格。</p>
                 </div>
+                <Button type="button" variant="outline" onClick={addVariation} className="rounded-full shadow-sm hover:bg-neutral-100">
+                  <Plus className="w-4 h-4 mr-1" /> 新增規格
+                </Button>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="stock">商品數量 <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    min="1"
-                    value={stock}
-                    onChange={(e) => setStock(e.target.value)}
-                    placeholder="輸入數量 (預設為 1)"
-                    className="rounded-xl h-11 bg-white border-border"
-                  />
-                </div>
+              <div className="space-y-4">
+                {variations.map((variation, index) => (
+                  <div key={variation.id} className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-100 relative">
+                    <div className="w-full sm:flex-1 space-y-2">
+                      <Label className="text-xs text-muted-foreground">款式名稱</Label>
+                      <Input
+                        placeholder="例如：左上角A款"
+                        value={variation.name}
+                        onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
+                        className="bg-white"
+                      />
+                    </div>
+                    <div className="w-full sm:w-32 space-y-2">
+                      <Label className="text-xs text-muted-foreground">單價 (NT$)</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={variation.price}
+                        onChange={(e) => updateVariation(variation.id, 'price', e.target.value)}
+                        className="bg-white"
+                      />
+                    </div>
+                    <div className="w-full sm:w-24 space-y-2">
+                      <Label className="text-xs text-muted-foreground">數量</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={variation.stock}
+                        onChange={(e) => updateVariation(variation.id, 'stock', e.target.value)}
+                        className="bg-white"
+                      />
+                    </div>
+
+                    {/* 如果超過 1 個規格，顯示刪除按鈕 */}
+                    {variations.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeVariation(variation.id)}
+                        className="text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-full sm:mb-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

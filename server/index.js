@@ -168,10 +168,11 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
-// 🌟 8. 刊登商品 API (新增接收 stock)
+// 🌟 8. 刊登商品 API (支援多規格 variations)
 app.post('/api/post-item', async (req, res) => {
     try {
-        const { title, description, category, condition, price, stock, location, images, sellerEmail } = req.body;
+        // 🌟 解構出 variations
+        const { title, description, category, condition, price, stock, location, images, sellerEmail, variations } = req.body;
 
         const newProduct = {
             title,
@@ -179,17 +180,18 @@ app.post('/api/post-item', async (req, res) => {
             category,
             condition,
             price: Number(price),
-            stock: Number(stock) || 1, // 🌟 新增：存入資料庫，沒有給的話預設為 1
+            stock: Number(stock) || 1,
             location: location || "",
             sellerEmail,
             images,
+            variations: variations || [], // 🌟 將規格陣列存入資料庫
             status: '上架中',
             views: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
         const docRef = await db.collection('products').add(newProduct);
-        console.log(`📦 新商品刊登成功: ${title}`);
+        console.log(`📦 新商品刊登成功: ${title} (包含 ${variations?.length || 1} 種規格)`);
 
         res.status(201).json({ success: true, message: '刊登成功', productId: docRef.id });
 
@@ -276,10 +278,10 @@ app.get('/api/product/:id', async (req, res) => {
     }
 });
 
-// 🌟 11. 更新商品資訊 (編輯後存檔用，新增接收 stock)
+// 🌟 11. 更新商品資訊 (編輯後存檔用，支援多規格)
 app.put('/api/product/:id', async (req, res) => {
     try {
-        const { title, description, category, condition, price, stock, images } = req.body;
+        const { title, description, category, condition, price, stock, images, variations } = req.body;
 
         const updateData = {
             title,
@@ -287,8 +289,9 @@ app.put('/api/product/:id', async (req, res) => {
             category,
             condition,
             price: Number(price),
-            stock: Number(stock) || 1, // 🌟 新增：編輯時如果有改數量，存進去
+            stock: Number(stock) || 1,
             images,
+            variations: variations || [], // 🌟 編輯時如果有改規格，存進去
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
@@ -461,70 +464,91 @@ app.get('/api/favorites/check', async (req, res) => {
     const doc = await db.collection('favorites').doc(favId).get();
     res.json({ isFavorite: doc.exists });
 });
-// 🌟 19. 加入/更新購物車 (若商品已在購物車則增加數量)
+// 🌟 19. 加入/更新購物車 (支援多規格辨識)
 app.post('/api/cart/add', async (req, res) => {
     try {
-        const { email, productId, quantity } = req.body;
-        const cartId = `${email}_${productId}`;
+        const { email, productId, quantity, variationName = "單一款式" } = req.body;
+
+        // 🌟 核心魔法：用「信箱 + 商品ID + 款式名稱」當作購物車的獨一無二 ID
+        // 這樣買家買 A 款跟 B 款，在購物車裡就會是兩筆獨立的項目！
+        const cartId = `${email}_${productId}_${variationName}`;
         const cartRef = db.collection('cart').doc(cartId);
         const doc = await cartRef.get();
 
         if (doc.exists) {
-            // 如果已經在購物車，累加數量
-            const currentQty = doc.data().quantity || 0;
-            await cartRef.update({
-                quantity: currentQty + quantity,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            res.status(200).json({ success: true, message: '已更新購物車數量' });
+            const currentQuantity = doc.data().quantity;
+            const newQuantity = currentQuantity + quantity;
+            if (newQuantity <= 0) {
+                await cartRef.delete();
+            } else {
+                await cartRef.update({ quantity: newQuantity });
+            }
         } else {
-            // 如果不在購物車，新增一筆
-            await cartRef.set({
-                userEmail: email,
-                productId: productId,
-                quantity: quantity,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            res.status(200).json({ success: true, message: '已加入購物車' });
+            if (quantity > 0) {
+                await cartRef.set({
+                    email,
+                    productId,
+                    variationName, // 🌟 把款式名稱存起來
+                    quantity,
+                    addedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
         }
+        res.status(200).json({ success: true, message: '購物車已更新' });
     } catch (error) {
-        console.error('❌ 加入購物車錯誤:', error);
+        console.error('❌ 更新購物車錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
 
-// 🌟 20. 撈取使用者的購物車清單
+// 🌟 20. 撈取使用者的購物車清單 (支援抓出對應款式的價格與庫存)
 app.get('/api/cart/:email', async (req, res) => {
     try {
-        const userEmail = req.params.email;
-        const snapshot = await db.collection('cart').where('userEmail', '==', userEmail).get();
-
-        if (snapshot.empty) {
-            return res.status(200).json({ success: true, cart: [] });
-        }
+        const { email } = req.params;
+        const cartSnapshot = await db.collection('cart').where('email', '==', email).get();
 
         const cartItems = [];
-        for (const doc of snapshot.docs) {
+        for (const doc of cartSnapshot.docs) {
             const cartData = doc.data();
             const productDoc = await db.collection('products').doc(cartData.productId).get();
 
             if (productDoc.exists) {
                 const p = productDoc.data();
+                const variationName = cartData.variationName || "單一款式";
+
+                // 🌟 從商品的 variations 陣列中，找出買家選的那個款式，取得正確的價格與庫存
+                let itemPrice = p.price;
+                let itemStock = p.stock || 1;
+
+                if (p.variations && p.variations.length > 0) {
+                    const matchedVariation = p.variations.find(v => v.name === variationName);
+                    if (matchedVariation) {
+                        itemPrice = matchedVariation.price;
+                        itemStock = matchedVariation.stock;
+                    }
+                }
+
+                // 🌟 把款式名稱加到標題後面，讓買家一目了然 (例如: 羽球拍 (紅色款))
+                const displayTitle = variationName !== "單一款式" ? `${p.title} (${variationName})` : p.title;
+
                 cartItems.push({
-                    cartId: doc.id, // 用於前端刪除
+                    cartId: doc.id,
                     productId: productDoc.id,
-                    title: p.title,
-                    price: p.price,
+                    variationName: variationName, // 🌟 傳給前端
+                    title: displayTitle,
+                    price: itemPrice,
                     image: p.images?.[0] || "",
                     quantity: cartData.quantity,
-                    stock: p.stock || 1,
+                    seller: p.sellerEmail ? p.sellerEmail.split('@')[0] : "未知賣家",
+                    stock: itemStock,
                     status: p.status || '上架中'
                 });
             }
         }
+
         res.status(200).json({ success: true, cart: cartItems });
     } catch (error) {
-        console.error('❌ 獲取購物車錯誤:', error);
+        console.error('❌ 讀取購物車錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });

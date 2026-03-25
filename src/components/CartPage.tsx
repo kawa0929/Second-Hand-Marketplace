@@ -13,6 +13,7 @@ interface CartPageProps {
 interface CartItem {
     cartId: string;
     productId: string;
+    variationName: string;
     title: string;
     price: number;
     quantity: number;
@@ -67,7 +68,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
             const res = await fetch('http://localhost:3001/api/cart/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: user.email, productId: item.productId, quantity: change })
+                body: JSON.stringify({ email: user.email, productId: item.productId, quantity: change, variationName: item.variationName })
             });
             const data = await res.json();
             if (data.success) fetchCartItems();

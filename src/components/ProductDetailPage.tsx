@@ -60,6 +60,9 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const [mainImageIndex, setMainImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // 🌟 新增：用來記錄買家目前選中的款式
+  const [selectedVariation, setSelectedVariation] = useState<any>(null);
+
   useEffect(() => {
     const fetchProduct = async () => {
       try {
@@ -67,6 +70,10 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
         const data = await res.json();
         if (data.success) {
           setProduct(data.product);
+          // 🌟 如果該商品只有 1 個款式，直接幫買家預設選好，省去點擊的麻煩
+          if (data.product.variations && data.product.variations.length === 1) {
+            setSelectedVariation(data.product.variations[0]);
+          }
         } else {
           toast.error("找不到該商品");
           onNavigate(previousPage);
@@ -163,6 +170,13 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
 
+    // 🌟 防呆：如果有規格可以選，但買家還沒選，擋下來！
+    const hasMultipleVariations = product.variations && product.variations.length > 1;
+    if (hasMultipleVariations && !selectedVariation) {
+      toast.error("請先選擇您想要的款式規格喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+
     try {
       const res = await fetch('http://localhost:3001/api/cart/add', {
         method: 'POST',
@@ -170,7 +184,9 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
         body: JSON.stringify({
           email: currentUser.email,
           productId: productId,
-          quantity: 1
+          quantity: 1,
+          // 🌟 把選中的款式名稱傳給後端 (如果沒有就傳 "單一款式")
+          variationName: selectedVariation ? selectedVariation.name : "單一款式"
         })
       });
       const data = await res.json();
@@ -192,13 +208,25 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       toast.error("無法購買自己刊登的商品喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
       return;
     }
+
+    // 🌟 結帳一樣要防呆
+    const hasMultipleVariations = product.variations && product.variations.length > 1;
+    if (hasMultipleVariations && !selectedVariation) {
+      toast.error("請先選擇您想要的款式規格喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+
     toast.info("🚀 即將推出：結帳與付款功能");
   };
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
   if (!product) return null;
 
-  const formattedPrice = `NT$${Number(product.price).toLocaleString()}`;
+  // 🌟 動態顯示價格與庫存 (如果買家有選款式，就顯示款式的；沒選就顯示預設的)
+  const displayPrice = selectedVariation ? selectedVariation.price : product.price;
+  const formattedPrice = `NT$${Number(displayPrice).toLocaleString()}`;
+  const displayStock = selectedVariation ? selectedVariation.stock : (product.stock || 1);
+
   const displayCategory = categoryMap[product.category] || "其他";
   const displayCondition = conditionMap[product.condition] || "未知";
   const images = product.images && product.images.length > 0 ? product.images : ["https://via.placeholder.com/800"];
@@ -206,7 +234,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const sellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
   const sellerAvatar = product.sellerInfo?.avatarUrl || "";
 
-  // 🌟 判斷當前使用者是不是賣家本人
   const activeUser = getCurrentUser();
   const isSeller = activeUser && activeUser.email === product.sellerEmail;
 
@@ -274,6 +301,30 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
 
               <div className="mb-6 text-3xl font-bold text-primary">{formattedPrice}</div>
 
+              {/* 🌟 款式規格選擇 UI */}
+              {product.variations && product.variations.length > 1 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-muted-foreground mb-3">選擇款式</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {product.variations.map((v: any, idx: number) => {
+                      const isSelected = selectedVariation?.name === v.name;
+                      const isOutOfStock = v.stock <= 0;
+                      return (
+                        <Button
+                          key={idx}
+                          variant={isSelected ? "default" : "outline"}
+                          className={`rounded-xl px-5 h-10 transition-all ${isSelected ? "bg-primary text-white shadow-md ring-2 ring-primary ring-offset-2" : "bg-white"} ${isOutOfStock ? "opacity-50 line-through cursor-not-allowed" : ""}`}
+                          onClick={() => !isOutOfStock && setSelectedVariation(v)}
+                          disabled={isOutOfStock}
+                        >
+                          {v.name}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <Button variant="outline" size="lg" className="flex-1 rounded-xl" onClick={handleChatClick}>
                   <MessageCircle className="w-5 h-5 mr-2" />
@@ -293,7 +344,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
             <Separator />
 
             <div>
-              {/* 🌟 加入了 flex 排版與專屬的編輯按鈕 */}
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-lg">商品描述</h3>
                 {isSeller && (
@@ -325,8 +375,9 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <span className="font-medium">{displayCategory}</span>
                 </div>
                 <div className="flex justify-between">
+                  {/* 🌟 庫存動態顯示 */}
                   <span className="text-muted-foreground">商品數量</span>
-                  <span className="font-medium">{product.stock || 1}</span>
+                  <span className="font-medium">{displayStock}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">刊登日期</span>

@@ -1,4 +1,4 @@
-import { Upload, X, ChevronLeft, Save, Trash2, Archive, ArchiveRestore } from "lucide-react";
+import { Upload, X, ChevronLeft, Save, Trash2, Archive, ArchiveRestore, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -13,17 +13,26 @@ interface EditProductPageProps {
     productId: string;
 }
 
+// 🌟 定義規格的資料格式
+interface Variation {
+    id: string;
+    name: string;
+    price: string;
+    stock: string;
+}
+
 export function EditProductPage({ onNavigate, productId }: EditProductPageProps) {
     const [images, setImages] = useState<string[]>([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("");
     const [condition, setCondition] = useState("");
-    const [price, setPrice] = useState("");
-    const [stock, setStock] = useState("1");
-    const [status, setStatus] = useState("上架中"); // 🌟 新增：追蹤目前商品的狀態
+    const [status, setStatus] = useState("上架中");
     const [isUploading, setIsUploading] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
+    // 🌟 取代單一 price 和 stock，改用陣列管理
+    const [variations, setVariations] = useState<Variation[]>([]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,10 +47,25 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     setDescription(p.description);
                     setCategory(p.category);
                     setCondition(p.condition);
-                    setPrice(p.price.toString());
-                    setStock(p.stock ? p.stock.toString() : "1");
-                    setStatus(p.status || "上架中"); // 🌟 載入狀態
+                    setStatus(p.status || "上架中");
                     setImages(p.images || []);
+
+                    // 🌟 載入規格：如果有 variations 就載入，沒有的話就拿舊版的 price 和 stock 當作單一規格（向下相容）
+                    if (p.variations && p.variations.length > 0) {
+                        setVariations(p.variations.map((v: any, index: number) => ({
+                            id: Date.now().toString() + index,
+                            name: v.name,
+                            price: v.price.toString(),
+                            stock: v.stock.toString()
+                        })));
+                    } else {
+                        setVariations([{
+                            id: Date.now().toString(),
+                            name: "單一款式",
+                            price: p.price ? p.price.toString() : "",
+                            stock: p.stock ? p.stock.toString() : "1"
+                        }]);
+                    }
                 } else {
                     toast.error("找不到該商品資料");
                     onNavigate('profile');
@@ -93,20 +117,58 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         setImages(images.filter((_, i) => i !== index));
     };
 
+    // 🌟 規格操作函式
+    const addVariation = () => {
+        if (variations.length >= 10) {
+            toast.error("最多只能新增 10 種規格喔！");
+            return;
+        }
+        setVariations([...variations, { id: Date.now().toString(), name: "", price: "", stock: "1" }]);
+    };
+
+    const removeVariation = (id: string) => {
+        if (variations.length === 1) {
+            toast.error("至少要保留一個規格喔！");
+            return;
+        }
+        setVariations(variations.filter(v => v.id !== id));
+    };
+
+    const updateVariation = (id: string, field: keyof Variation, value: string) => {
+        setVariations(variations.map(v => v.id === id ? { ...v, [field]: value } : v));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (images.length === 0) {
-            toast.error("請至少保留一張照片");
-            return;
-        }
-        if (parseInt(stock) < 1 || isNaN(parseInt(stock))) {
-            toast.error("數量請至少輸入 1");
-            return;
+
+        if (images.length === 0) return toast.error("請至少保留一張照片");
+        if (!title.trim() || title.length > 60) return toast.error("請正確填寫商品名稱 (最多 60 字)！");
+        if (!description.trim() || description.length < 5 || description.length > 3000) return toast.error("請正確填寫商品描述 (5~3000 字)！");
+        if (!category) return toast.error("請選擇商品分類！");
+        if (!condition) return toast.error("請選擇商品狀況！");
+
+        // 🌟 規格驗證
+        for (let i = 0; i < variations.length; i++) {
+            const v = variations[i];
+            if (!v.name.trim()) return toast.error(`請填寫第 ${i + 1} 個規格的名稱！`);
+            if (!v.price || Number(v.price) <= 0) return toast.error(`請填寫第 ${i + 1} 個規格的有效售價！`);
+            if (!v.stock || parseInt(v.stock) < 1 || isNaN(parseInt(v.stock))) return toast.error(`請填寫第 ${i + 1} 個規格的數量 (至少 1)！`);
         }
 
+        // 🌟 整理要傳給後端的資料格式
         const updateData = {
-            title, description, category, condition,
-            price: Number(price), stock: parseInt(stock), images
+            title,
+            description,
+            category,
+            condition,
+            images,
+            price: Number(variations[0].price), // 以第一個規格為代表價
+            stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0), // 總庫存
+            variations: variations.map(v => ({
+                name: v.name.trim(),
+                price: Number(v.price),
+                stock: parseInt(v.stock)
+            }))
         };
 
         try {
@@ -125,7 +187,6 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         }
     };
 
-    // 🌟 功能：切換上下架狀態
     const handleToggleStatus = async () => {
         const newStatus = status === "上架中" ? "已下架" : "上架中";
         try {
@@ -144,9 +205,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         }
     };
 
-    // 🌟 功能：永久刪除商品
     const handleDelete = async () => {
-        // 防呆：跳出原生的確認視窗
         const confirmDelete = window.confirm("⚠️ 確定要永久刪除這個商品嗎？\n刪除後將無法復原喔！");
         if (!confirmDelete) return;
 
@@ -157,7 +216,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
             const data = await response.json();
             if (data.success) {
                 toast.success("商品已永久刪除！🗑️");
-                onNavigate('profile'); // 刪除後直接退回個人頁面
+                onNavigate('profile');
             }
         } catch (error) {
             toast.error("刪除失敗，請檢查網路");
@@ -177,7 +236,6 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     <div>
                         <h1 className="text-3xl font-bold flex items-center gap-3">
                             編輯商品
-                            {/* 🌟 狀態標籤 */}
                             {status === "已下架" && (
                                 <span className="text-sm px-3 py-1 bg-neutral-200 text-neutral-600 rounded-full font-medium">已下架</span>
                             )}
@@ -186,7 +244,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} noValidate className="space-y-6">
                     <Card className="rounded-2xl border-border">
                         <CardContent className="p-6">
                             <Label className="text-lg font-medium mb-4 block">商品照片</Label>
@@ -197,7 +255,8 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                         <button
                                             type="button"
                                             onClick={() => removeImage(index)}
-                                            className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white shadow-sm transition-colors"
+                                            disabled={status === "已下架"}
+                                            className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white shadow-sm transition-colors disabled:opacity-50"
                                         >
                                             <X className="w-4 h-4" />
                                         </button>
@@ -206,9 +265,9 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                 {images.length < 3 && (
                                     <button
                                         type="button"
-                                        disabled={isUploading}
+                                        disabled={isUploading || status === "已下架"}
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="aspect-square rounded-xl border-2 border-dashed border-neutral-300 hover:border-primary transition-all flex flex-col items-center justify-center gap-2"
+                                        className="aspect-square rounded-xl border-2 border-dashed border-neutral-300 hover:border-primary transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Upload className={`w-6 h-6 ${isUploading ? 'animate-bounce' : 'text-neutral-400'}`} />
                                         <span className="text-sm text-neutral-500">{isUploading ? '上傳中...' : '新增照片'}</span>
@@ -223,11 +282,11 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                         <CardContent className="p-6 space-y-4">
                             <div className="space-y-2">
                                 <Label>商品名稱 *</Label>
-                                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
+                                <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
                             </div>
                             <div className="space-y-2">
                                 <Label>商品描述 *</Label>
-                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
+                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={3000} className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
@@ -269,40 +328,83 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                         </CardContent>
                     </Card>
 
+                    {/* 🌟 動態規格區塊 */}
                     <Card className="rounded-2xl border-border">
-                        <CardContent className="p-6">
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>售價 *</Label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
-                                        <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl h-11 bg-white pl-14" required disabled={status === "已下架"} />
+                        <CardContent className="p-6 space-y-4">
+                            <div className="flex items-center justify-between border-b pb-4 mb-4">
+                                <div>
+                                    <Label className="text-lg font-medium">款式規格與售價 <span className="text-red-500">*</span></Label>
+                                    <p className="text-sm text-muted-foreground mt-1">您可以隨時新增或修改商品的規格款式。</p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={addVariation}
+                                    disabled={status === "已下架"}
+                                    className="rounded-full shadow-sm hover:bg-neutral-100 disabled:opacity-50"
+                                >
+                                    <Plus className="w-4 h-4 mr-1" /> 新增規格
+                                </Button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {variations.map((variation) => (
+                                    <div key={variation.id} className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-100 relative">
+                                        <div className="w-full sm:flex-1 space-y-2">
+                                            <Label className="text-xs text-muted-foreground">款式名稱</Label>
+                                            <Input
+                                                value={variation.name}
+                                                onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
+                                                className="bg-white"
+                                                disabled={status === "已下架"}
+                                            />
+                                        </div>
+                                        <div className="w-full sm:w-32 space-y-2">
+                                            <Label className="text-xs text-muted-foreground">單價 (NT$)</Label>
+                                            <Input
+                                                type="number"
+                                                value={variation.price}
+                                                onChange={(e) => updateVariation(variation.id, 'price', e.target.value)}
+                                                className="bg-white"
+                                                disabled={status === "已下架"}
+                                            />
+                                        </div>
+                                        <div className="w-full sm:w-24 space-y-2">
+                                            <Label className="text-xs text-muted-foreground">數量</Label>
+                                            <Input
+                                                type="number"
+                                                min="1"
+                                                value={variation.stock}
+                                                onChange={(e) => updateVariation(variation.id, 'stock', e.target.value)}
+                                                className="bg-white"
+                                                disabled={status === "已下架"}
+                                            />
+                                        </div>
+
+                                        {variations.length > 1 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => removeVariation(variation.id)}
+                                                disabled={status === "已下架"}
+                                                className="text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-full sm:mb-1 disabled:opacity-50"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>商品數量 *</Label>
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        value={stock}
-                                        onChange={(e) => setStock(e.target.value)}
-                                        className="rounded-xl h-11 bg-white"
-                                        required
-                                        disabled={status === "已下架"}
-                                    />
-                                </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* 儲存變更按鈕 */}
                     <Button type="submit" size="lg" className="w-full rounded-full" disabled={isUploading || status === "已下架"}>
                         <Save className="w-5 h-5 mr-2" />
                         {isUploading ? "圖片處理中..." : (status === "已下架" ? "下架中無法編輯" : "儲存變更")}
                     </Button>
                 </form>
 
-                {/* 🌟 進階商品管理：下架與刪除 */}
                 <div className="mt-12 pt-8 border-t border-border">
                     <h3 className="text-lg font-bold text-red-500 mb-4">危險區域 (商品管理)</h3>
                     <Card className="rounded-2xl border-red-100 bg-red-50/50">
