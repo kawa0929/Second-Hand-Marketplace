@@ -18,7 +18,7 @@ console.log('✅ 成功連線到 Firebase Firestore 資料庫！');
 
 let otpStore = {};
 
-// 🌟 2. 寄送驗證碼 (Mocking 保持不變)
+// 🌟 2. 寄送驗證碼
 app.post('/api/send-otp', (req, res) => {
     const { email } = req.body;
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -38,23 +38,20 @@ app.post('/api/verify-otp', (req, res) => {
     }
 });
 
-// 🌟 4. 修改：註冊並寫入 Firebase
+// 🌟 4. 註冊並寫入 Firebase
 app.post('/api/register', async (req, res) => {
     try {
         const { fullname, phone, email, password, avatarUrl } = req.body;
 
-        // A. 檢查信箱是否重複
         const userRef = db.collection('users').doc(email);
         const doc = await userRef.get();
         if (doc.exists) {
             return res.status(400).json({ success: false, message: '這個信箱已經註冊過囉！' });
         }
 
-        // B. 密碼加密
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // C. 存入 Firestore
         await userRef.set({
             fullname,
             phone,
@@ -79,26 +76,20 @@ app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // A. 去 Firebase 找這個信箱 (Document)
         const userRef = db.collection('users').doc(email);
         const doc = await userRef.get();
 
-        // 如果資料庫裡沒有這個信箱
         if (!doc.exists) {
             return res.status(400).json({ success: false, message: '找不到這個帳號，請先註冊喔！' });
         }
 
-        // B. 拿資料庫裡的資料出來，準備比對密碼
         const userData = doc.data();
-
-        // bcrypt.compare 會自動把前端傳來的明文密碼，跟資料庫裡的亂碼比對
         const isMatch = await bcrypt.compare(password, userData.password);
 
         if (!isMatch) {
             return res.status(400).json({ success: false, message: '密碼錯誤！' });
         }
 
-        // C. 密碼正確！登入成功，把使用者的重要資訊 (不含密碼) 傳回給前端
         console.log(`🎉 登入成功: ${email} (身分: ${userData.role})`);
 
         res.status(200).json({
@@ -107,11 +98,10 @@ app.post('/api/login', async (req, res) => {
             user: {
                 email: userData.email,
                 fullname: userData.fullname,
-                role: userData.role, // 把身分傳給前端，前端才能知道他是 admin 還是 user
+                role: userData.role,
                 avatarUrl: userData.avatarUrl,
-                address: userData.address, // 順便把這兩個也帶上，確保換電腦登入也能拿到最新資料
+                address: userData.address,
                 bio: userData.bio,
-                // 🌟 最關鍵的修改：把 Firebase 的 Timestamp 轉成標準的字串傳給前端
                 createdAt: userData.createdAt ? userData.createdAt.toDate().toISOString() : new Date().toISOString()
             }
         });
@@ -121,6 +111,7 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+
 // 🌟 6. 重設密碼 API
 app.post('/api/reset-password', async (req, res) => {
     try {
@@ -129,16 +120,13 @@ app.post('/api/reset-password', async (req, res) => {
         const userRef = db.collection('users').doc(email);
         const doc = await userRef.get();
 
-        // 檢查有沒有這個人
         if (!doc.exists) {
             return res.status(400).json({ success: false, message: '找不到此信箱，請確認是否輸入正確。' });
         }
 
-        // 把新密碼加密
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-        // 更新 Firebase 裡面的密碼欄位 (使用 update 而不是 set，才不會蓋掉他的姓名電話)
         await userRef.update({
             password: hashedPassword
         });
@@ -151,6 +139,7 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+
 // 🌟 7. 更新個人資料 API
 app.post('/api/update-profile', async (req, res) => {
     try {
@@ -163,7 +152,6 @@ app.post('/api/update-profile', async (req, res) => {
             return res.status(404).json({ success: false, message: '找不到此用戶' });
         }
 
-        // 更新除了密碼和 role 以外的資料
         await userRef.update({
             fullname,
             address: address || "",
@@ -179,10 +167,11 @@ app.post('/api/update-profile', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 8. 刊登商品 API (只需處理文字與圖片網址)
+
+// 🌟 8. 刊登商品 API (新增接收 stock)
 app.post('/api/post-item', async (req, res) => {
     try {
-        const { title, description, category, condition, price, location, images, sellerEmail } = req.body;
+        const { title, description, category, condition, price, stock, location, images, sellerEmail } = req.body;
 
         const newProduct = {
             title,
@@ -190,15 +179,15 @@ app.post('/api/post-item', async (req, res) => {
             category,
             condition,
             price: Number(price),
-            location,
+            stock: Number(stock) || 1, // 🌟 新增：存入資料庫，沒有給的話預設為 1
+            location: location || "",
             sellerEmail,
-            images, // 這是前端傳來的 ImgBB 網址陣列
+            images,
             status: '上架中',
             views: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
-        // 直接寫入 Firestore
         const docRef = await db.collection('products').add(newProduct);
         console.log(`📦 新商品刊登成功: ${title}`);
 
@@ -209,12 +198,11 @@ app.post('/api/post-item', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 9. 撈取特定使用者的所有商品 (已加上時間排序)
+
+// 🌟 9. 撈取特定使用者的所有商品
 app.get('/api/user-products/:email', async (req, res) => {
     try {
         const userEmail = req.params.email;
-
-        // 去 products 集合裡面，找 sellerEmail 等於這個信箱的所有商品
         const snapshot = await db.collection('products').where('sellerEmail', '==', userEmail).get();
 
         let products = [];
@@ -223,17 +211,16 @@ app.get('/api/user-products/:email', async (req, res) => {
             products.push({
                 id: doc.id,
                 title: data.title,
-                price: `NT$${data.price.toLocaleString()}`, // 幫價格加上 NT$ 跟千位號
-                image: data.images && data.images.length > 0 ? data.images[0] : "", // 取第一張當封面圖
+                price: `NT$${data.price.toLocaleString()}`,
+                image: data.images && data.images.length > 0 ? data.images[0] : "",
                 status: data.status,
+                stock: data.stock || 1, // 🌟 舊商品防呆：沒數量預設 1
                 views: data.views || 0,
-                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : "1970-01-01T00:00:00.000Z" // 給個預設時間防呆
+                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : "1970-01-01T00:00:00.000Z"
             });
         });
 
-        // 🌟 關鍵修復：在後端把抓回來的陣列，按照時間「由新到舊 (desc)」重新排序！
         products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
         res.status(200).json({ success: true, products });
 
     } catch (error) {
@@ -241,7 +228,8 @@ app.get('/api/user-products/:email', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 10. 獲取單一商品資訊 (包含賣家詳細資訊、刊登數量與正確日期格式)
+
+// 🌟 10. 獲取單一商品資訊
 app.get('/api/product/:id', async (req, res) => {
     try {
         const doc = await db.collection('products').doc(req.params.id).get();
@@ -250,24 +238,17 @@ app.get('/api/product/:id', async (req, res) => {
         }
 
         const productData = doc.data();
+        let formattedDate = productData.createdAt ? productData.createdAt.toDate().toISOString() : null;
 
-        // 處理日期
-        let formattedDate = null;
-        if (productData.createdAt) {
-            formattedDate = productData.createdAt.toDate().toISOString();
-        }
-
-        // 🌟 賣家資訊預設值 (未來有了評價系統，可以從這裡讀取真實的好評率)
         let sellerInfo = {
             fullname: productData.sellerEmail ? productData.sellerEmail.split('@')[0] : "未知賣家",
             avatarUrl: "",
             totalProducts: 0,
-            ratingRate: 100, // 預設 100%
-            reviewCount: 0   // 預設 0 則評價
+            ratingRate: 100,
+            reviewCount: 0
         };
 
         if (productData.sellerEmail) {
-            // 1. 去 users 集合找大頭貼跟名字
             const userSnapshot = await db.collection('users').where('email', '==', productData.sellerEmail).get();
             if (!userSnapshot.empty) {
                 const userData = userSnapshot.docs[0].data();
@@ -275,9 +256,8 @@ app.get('/api/product/:id', async (req, res) => {
                 sellerInfo.avatarUrl = userData.avatarUrl || "";
             }
 
-            // 🌟 2. 去 products 集合「數」這個賣家總共刊登了幾件商品！
             const productsSnapshot = await db.collection('products').where('sellerEmail', '==', productData.sellerEmail).get();
-            sellerInfo.totalProducts = productsSnapshot.size; // .size 就是資料筆數
+            sellerInfo.totalProducts = productsSnapshot.size;
         }
 
         res.status(200).json({
@@ -285,6 +265,7 @@ app.get('/api/product/:id', async (req, res) => {
             product: {
                 id: doc.id,
                 ...productData,
+                stock: productData.stock || 1, // 🌟 舊商品防呆：沒數量預設 1
                 createdAt: formattedDate,
                 sellerInfo
             }
@@ -294,19 +275,21 @@ app.get('/api/product/:id', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 11. 更新商品資訊 (編輯後存檔用)
+
+// 🌟 11. 更新商品資訊 (編輯後存檔用，新增接收 stock)
 app.put('/api/product/:id', async (req, res) => {
     try {
-        const { title, description, category, condition, price, images } = req.body;
+        const { title, description, category, condition, price, stock, images } = req.body;
 
         const updateData = {
             title,
             description,
             category,
             condition,
-            price: Number(price), // 確保是數字
+            price: Number(price),
+            stock: Number(stock) || 1, // 🌟 新增：編輯時如果有改數量，存進去
             images,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp() // 紀錄更新時間
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
         await db.collection('products').doc(req.params.id).update(updateData);
@@ -318,23 +301,20 @@ app.put('/api/product/:id', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-// 🌟 12. 獲取使用者賣場統計資訊 (包含姓名、頭貼等基本資料)
+
+// 🌟 12. 獲取使用者賣場統計資訊
 app.get('/api/user-stats/:email', async (req, res) => {
     try {
         const email = req.params.email;
-
-        // 1. 去 users 集合抓取使用者的基本資料
         const userRef = db.collection('users').doc(email);
         const userDoc = await userRef.get();
 
-        // 設定預設值
         let userInfo = {
             fullname: email.split('@')[0],
             avatarUrl: "",
             createdAt: null
         };
 
-        // 如果資料庫有這個人，就更新為真實資料
         if (userDoc.exists) {
             const data = userDoc.data();
             userInfo.fullname = data.fullname || userInfo.fullname;
@@ -342,7 +322,6 @@ app.get('/api/user-stats/:email', async (req, res) => {
             userInfo.createdAt = data.createdAt ? data.createdAt.toDate().toISOString() : null;
         }
 
-        // 2. 數商品總數
         const productsSnapshot = await db.collection('products').where('sellerEmail', '==', email).get();
         const totalProducts = productsSnapshot.size;
 
@@ -353,25 +332,26 @@ app.get('/api/user-stats/:email', async (req, res) => {
             reviewCount: 0
         };
 
-        // 🌟 把 stats 和 userInfo 一起回傳給前端
         res.status(200).json({ success: true, stats, userInfo });
     } catch (error) {
         console.error('❌ 獲取賣家資料錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+
+// 🌟 13. 首頁或搜尋獲取所有商品
 app.get('/api/products', async (req, res) => {
     try {
-        const { search } = req.query; // 🌟 接收 query 字串
+        const { search } = req.query;
         const snapshot = await db.collection('products').orderBy('createdAt', 'desc').get();
 
         let products = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
+            stock: doc.data().stock || 1, // 🌟 舊商品防呆：沒數量預設 1
             createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : null
         }));
 
-        // 🌟 邏輯：如果前端有傳 search，就過濾標題或描述包含關鍵字的商品
         if (search) {
             const keyword = search.toLowerCase();
             products = products.filter(p =>
@@ -382,6 +362,33 @@ app.get('/api/products', async (req, res) => {
 
         res.status(200).json({ success: true, products });
     } catch (error) {
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 14. 更新商品狀態 (上下架切換)
+app.put('/api/product/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+        await db.collection('products').doc(req.params.id).update({
+            status: status,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`🔄 商品狀態更新: ${req.params.id} -> ${status}`);
+        res.status(200).json({ success: true, message: `商品已${status}` });
+    } catch (error) {
+        console.error('❌ 更新狀態錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
+// 🌟 15. 刪除商品 (永久刪除)
+app.delete('/api/product/:id', async (req, res) => {
+    try {
+        await db.collection('products').doc(req.params.id).delete();
+        console.log(`🗑️ 商品永久刪除成功: (ID: ${req.params.id})`);
+        res.status(200).json({ success: true, message: '商品已刪除' });
+    } catch (error) {
+        console.error('❌ 刪除商品錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });

@@ -11,7 +11,29 @@ interface SellerProfilePageProps {
     sellerEmail: string;
 }
 
-// 格式化日期的函數 (算出加入多久)
+// 分類與狀況的中文化對照表 (維持不變)
+const categoryMap: Record<string, string> = {
+    electronics: "電子產品",
+    fashion: "服飾配件",
+    furniture: "家具",
+    sports: "運動用品",
+    books: "書籍",
+    toys: "玩具",
+    plants: "居家園藝",
+    kitchen: "廚房用品",
+    idol: "偶像周邊",
+    other: "其他",
+};
+
+const conditionMap: Record<string, string> = {
+    new: "全新",
+    "like-new": "近全新",
+    excellent: "極佳",
+    good: "良好",
+    fair: "尚可",
+};
+
+// 格式化日期的函數 (維持不變)
 const formatJoinDate = (dateString?: string) => {
     if (!dateString) return "近期加入";
     const d = new Date(dateString);
@@ -21,7 +43,7 @@ const formatJoinDate = (dateString?: string) => {
 export function SellerProfilePage({ onNavigate, sellerEmail }: SellerProfilePageProps) {
     const [products, setProducts] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
-    const [sellerInfo, setSellerInfo] = useState<any>(null); // 🌟 儲存賣家真實資料
+    const [sellerInfo, setSellerInfo] = useState<any>(null); // 儲存賣家真實資料
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -34,7 +56,7 @@ export function SellerProfilePage({ onNavigate, sellerEmail }: SellerProfilePage
                 const statsData = await statsRes.json();
                 if (statsData.success) {
                     setStats(statsData.stats);
-                    setSellerInfo(statsData.userInfo); // 🌟 接住後端傳來的真實資料
+                    setSellerInfo(statsData.userInfo);
                 }
 
                 // 2. 抓取賣家商品
@@ -69,28 +91,30 @@ export function SellerProfilePage({ onNavigate, sellerEmail }: SellerProfilePage
                     <ChevronLeft className="w-4 h-4 mr-2" /> 返回瀏覽商品
                 </Button>
 
-                {/* 賣家資訊區塊 */}
+                {/* 🌟 賣家資訊區塊 - 修改為簡潔的純白全幅卡片設計 */}
                 <Card className="rounded-3xl border-border bg-white mb-8 overflow-hidden">
-                    <div className="h-32 bg-primary/10"></div>
-                    <CardContent className="px-8 pb-8 pt-0 relative">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 -mt-12 sm:-mt-16 mb-6">
+                    {/* ❌ 移除了灰色的背景 div (h-32 bg-primary/10) */}
 
-                            {/* 🌟 賣家真實頭貼 */}
-                            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white bg-primary/10 overflow-hidden flex-shrink-0 shadow-sm flex items-center justify-center text-4xl text-primary font-bold">
+                    <CardContent className="p-8 relative"> {/* 修改：統一內邊距為 p-8 */}
+                        <div className="flex flex-col sm:flex-row items-center gap-6 mb-6"> {/* 修改：移除負邊距 (-mt)，改為垂直居中 (items-center) */}
+
+                            {/* 🌟 賣家真實頭貼 - 優化顯示邏輯 */}
+                            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0 shadow-sm border border-border"> {/* 修改：移除白色粗邊框，加入 border-border，BG 改回 bg-primary/10 */}
                                 {displayAvatar ? (
                                     displayAvatar.startsWith('http') || displayAvatar.startsWith('data:image') ? (
                                         <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
                                     ) : (
-                                        <span>{displayAvatar}</span> // Emoji 頭貼
+                                        <span className="text-4xl">{displayAvatar}</span> // 🌟 智慧判斷顯示 Emoji 頭貼，確保居中且不被切到
                                     )
                                 ) : (
-                                    <span>{displayName.charAt(0).toUpperCase()}</span> // 沒有頭貼就顯示第一個字
+                                    <span className="text-4xl">{displayName.charAt(0).toUpperCase()}</span> // 沒有頭貼就顯示第一個字
                                 )}
                             </div>
 
-                            <div className="flex-1">
+                            {/* 賣家文字資訊 */}
+                            <div className="flex-1 text-center sm:text-left"> {/* 修改：文字區域置左 */}
                                 <h1 className="text-2xl font-bold">{displayName} 的賣場</h1>
-                                <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                                <p className="text-muted-foreground flex items-center justify-center sm:justify-start gap-2 mt-1"> {/* 修改：在手機版置中，電腦版置左 */}
                                     <Calendar className="w-4 h-4" /> 註冊時間：{formatJoinDate(sellerInfo?.createdAt)}
                                 </p>
                             </div>
@@ -100,7 +124,7 @@ export function SellerProfilePage({ onNavigate, sellerEmail }: SellerProfilePage
                         </div>
 
                         {/* 統計數字 */}
-                        <div className="flex gap-8 border-t border-border pt-6">
+                        <div className="flex gap-8 border-t border-border pt-6 justify-center sm:justify-start"> {/* 修改：手機版置中，電腦版置左 */}
                             <div>
                                 <div className="text-2xl font-bold">{stats?.totalProducts || 0}</div>
                                 <div className="text-sm text-muted-foreground">刊登商品</div>

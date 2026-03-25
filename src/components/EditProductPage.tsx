@@ -1,4 +1,4 @@
-import { Upload, X, ChevronLeft, Save } from "lucide-react";
+import { Upload, X, ChevronLeft, Save, Trash2, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 interface EditProductPageProps {
     onNavigate: (page: string) => void;
-    productId: string; // 🌟 必須傳入商品 ID 才知道要編輯哪一個
+    productId: string;
 }
 
 export function EditProductPage({ onNavigate, productId }: EditProductPageProps) {
@@ -20,12 +20,13 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
     const [category, setCategory] = useState("");
     const [condition, setCondition] = useState("");
     const [price, setPrice] = useState("");
+    const [stock, setStock] = useState("1");
+    const [status, setStatus] = useState("上架中"); // 🌟 新增：追蹤目前商品的狀態
     const [isUploading, setIsUploading] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 🌟 一進頁面，馬上用 ID 去後端撈舊資料來填格子
     useEffect(() => {
         const fetchProduct = async () => {
             try {
@@ -38,6 +39,8 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     setCategory(p.category);
                     setCondition(p.condition);
                     setPrice(p.price.toString());
+                    setStock(p.stock ? p.stock.toString() : "1");
+                    setStatus(p.status || "上架中"); // 🌟 載入狀態
                     setImages(p.images || []);
                 } else {
                     toast.error("找不到該商品資料");
@@ -96,11 +99,17 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
             toast.error("請至少保留一張照片");
             return;
         }
+        if (parseInt(stock) < 1 || isNaN(parseInt(stock))) {
+            toast.error("數量請至少輸入 1");
+            return;
+        }
 
-        const updateData = { title, description, category, condition, price, images };
+        const updateData = {
+            title, description, category, condition,
+            price: Number(price), stock: parseInt(stock), images
+        };
 
         try {
-            // 🌟 呼叫 PUT API 更新資料
             const response = await fetch(`http://localhost:3001/api/product/${productId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -116,6 +125,45 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         }
     };
 
+    // 🌟 功能：切換上下架狀態
+    const handleToggleStatus = async () => {
+        const newStatus = status === "上架中" ? "已下架" : "上架中";
+        try {
+            const response = await fetch(`http://localhost:3001/api/product/${productId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setStatus(newStatus);
+                toast.success(`商品${newStatus}成功！`);
+            }
+        } catch (error) {
+            toast.error("狀態更新失敗，請檢查網路");
+        }
+    };
+
+    // 🌟 功能：永久刪除商品
+    const handleDelete = async () => {
+        // 防呆：跳出原生的確認視窗
+        const confirmDelete = window.confirm("⚠️ 確定要永久刪除這個商品嗎？\n刪除後將無法復原喔！");
+        if (!confirmDelete) return;
+
+        try {
+            const response = await fetch(`http://localhost:3001/api/product/${productId}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                toast.success("商品已永久刪除！🗑️");
+                onNavigate('profile'); // 刪除後直接退回個人頁面
+            }
+        } catch (error) {
+            toast.error("刪除失敗，請檢查網路");
+        }
+    };
+
     if (isLoading) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
 
     return (
@@ -125,9 +173,17 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     <ChevronLeft className="w-4 h-4 mr-2" /> 返回我的商品
                 </Button>
 
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold">編輯商品</h1>
-                    <p className="text-muted-foreground mt-2">更新您的商品資訊</p>
+                <div className="mb-8 flex items-end justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold flex items-center gap-3">
+                            編輯商品
+                            {/* 🌟 狀態標籤 */}
+                            {status === "已下架" && (
+                                <span className="text-sm px-3 py-1 bg-neutral-200 text-neutral-600 rounded-full font-medium">已下架</span>
+                            )}
+                        </h1>
+                        <p className="text-muted-foreground mt-2">更新您的商品資訊</p>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -136,7 +192,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                             <Label className="text-lg font-medium mb-4 block">商品照片</Label>
                             <div className="grid grid-cols-3 gap-4">
                                 {images.map((image, index) => (
-                                    <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-border">
+                                    <div key={index} className={`relative aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-border ${status === "已下架" ? "grayscale opacity-70" : ""}`}>
                                         <img src={image} alt="product" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
@@ -167,21 +223,20 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                         <CardContent className="p-6 space-y-4">
                             <div className="space-y-2">
                                 <Label>商品名稱 *</Label>
-                                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl h-11 bg-white" required />
+                                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
                             </div>
                             <div className="space-y-2">
                                 <Label>商品描述 *</Label>
-                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="rounded-xl min-h-32 bg-white resize-none" required />
+                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>分類 *</Label>
-                                    <Select value={category} onValueChange={setCategory} required>
+                                    <Select value={category} onValueChange={setCategory} required disabled={status === "已下架"}>
                                         <SelectTrigger className="rounded-xl h-11 bg-white">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {/* 🌟 補齊所有分類 */}
                                             <SelectItem value="electronics">電子產品</SelectItem>
                                             <SelectItem value="furniture">家具</SelectItem>
                                             <SelectItem value="fashion">服飾配件</SelectItem>
@@ -197,12 +252,11 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                 </div>
                                 <div className="space-y-2">
                                     <Label>商品狀況 *</Label>
-                                    <Select value={condition} onValueChange={setCondition} required>
+                                    <Select value={condition} onValueChange={setCondition} required disabled={status === "已下架"}>
                                         <SelectTrigger className="rounded-xl h-11 bg-white">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {/* 🌟 補齊極佳 (excellent) */}
                                             <SelectItem value="new">全新</SelectItem>
                                             <SelectItem value="like-new">近全新</SelectItem>
                                             <SelectItem value="excellent">極佳</SelectItem>
@@ -217,21 +271,77 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
 
                     <Card className="rounded-2xl border-border">
                         <CardContent className="p-6">
-                            <div className="space-y-2">
-                                <Label>售價 *</Label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
-                                    <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl h-11 bg-white pl-14" required />
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>售價 *</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
+                                        <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl h-11 bg-white pl-14" required disabled={status === "已下架"} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>商品數量 *</Label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        value={stock}
+                                        onChange={(e) => setStock(e.target.value)}
+                                        className="rounded-xl h-11 bg-white"
+                                        required
+                                        disabled={status === "已下架"}
+                                    />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Button type="submit" size="lg" className="w-full rounded-full" disabled={isUploading}>
+                    {/* 儲存變更按鈕 */}
+                    <Button type="submit" size="lg" className="w-full rounded-full" disabled={isUploading || status === "已下架"}>
                         <Save className="w-5 h-5 mr-2" />
-                        {isUploading ? "圖片處理中..." : "儲存變更"}
+                        {isUploading ? "圖片處理中..." : (status === "已下架" ? "下架中無法編輯" : "儲存變更")}
                     </Button>
                 </form>
+
+                {/* 🌟 進階商品管理：下架與刪除 */}
+                <div className="mt-12 pt-8 border-t border-border">
+                    <h3 className="text-lg font-bold text-red-500 mb-4">危險區域 (商品管理)</h3>
+                    <Card className="rounded-2xl border-red-100 bg-red-50/50">
+                        <CardContent className="p-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                            <div>
+                                <h4 className="font-bold mb-1">
+                                    {status === "上架中" ? "暫時下架商品" : "重新上架商品"}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                    {status === "上架中"
+                                        ? "商品將不會顯示在首頁與搜尋中，您可以隨時重新上架。"
+                                        : "商品將重新開放讓大家搜尋與購買。"}
+                                </p>
+                            </div>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 sm:flex-none rounded-xl bg-white hover:bg-neutral-100"
+                                    onClick={handleToggleStatus}
+                                >
+                                    {status === "上架中" ? (
+                                        <><Archive className="w-4 h-4 mr-2" /> 暫時下架</>
+                                    ) : (
+                                        <><ArchiveRestore className="w-4 h-4 mr-2" /> 重新上架</>
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    className="flex-1 sm:flex-none rounded-xl"
+                                    onClick={handleDelete}
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    永久刪除
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
             </div>
         </div>
     );

@@ -1,4 +1,4 @@
-import { Home, Package, PlusCircle, User, MessageCircle, LogIn, UserPlus, Menu, X } from "lucide-react";
+import { Home, Package, PlusCircle, User, MessageCircle, LogIn, UserPlus, Menu, X, ShoppingCart } from "lucide-react";
 import { Button } from "./ui/button";
 import { LoginPromptDialog } from "./LoginPromptDialog";
 import { useState } from "react";
@@ -11,20 +11,32 @@ interface NavigationProps {
 
 export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationProps) {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // 🌟 控制漢堡選單開關
+  const [promptMessage, setPromptMessage] = useState(""); // 🌟 新增：用來記錄要顯示的提示文字
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handlePostClick = () => {
-    setIsMenuOpen(false); // 點擊後關閉手機選單
+    setIsMenuOpen(false);
     if (!isLoggedIn) {
+      setPromptMessage("登入後即可刊登您的商品。"); // 🌟 設定刊登商品的專屬提示
       setShowLoginPrompt(true);
     } else {
       onNavigate('post');
     }
   };
 
+  const handleCartClick = () => {
+    setIsMenuOpen(false);
+    if (!isLoggedIn) {
+      setPromptMessage("登入後即可查看您的購物車。"); // 🌟 設定購物車的專屬提示
+      setShowLoginPrompt(true);
+    } else {
+      onNavigate('cart');
+    }
+  };
+
   const handleNavigate = (page: string) => {
     onNavigate(page);
-    setIsMenuOpen(false); // 點擊後關閉手機選單
+    setIsMenuOpen(false);
   };
 
   const handleLoginConfirm = () => {
@@ -47,7 +59,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
               <span>二手好物市集</span>
             </button>
 
-            {/* 電腦版選單 (md 以上才顯示) */}
+            {/* 電腦版選單 */}
             <div className="hidden md:flex items-center gap-2">
               <Button
                 variant={currentPage === 'home' ? 'secondary' : 'ghost'}
@@ -92,8 +104,18 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
 
           {/* 右側按鈕區域 */}
           <div className="flex items-center gap-2">
-            {/* 電腦版右側按鈕 (md 以上才顯示) */}
+
+            {/* 電腦版右側按鈕 */}
             <div className="hidden md:flex items-center gap-2">
+              <Button
+                variant={currentPage === 'cart' ? 'secondary' : 'ghost'}
+                size="icon"
+                onClick={handleCartClick}
+                className="rounded-full relative mr-2"
+              >
+                <ShoppingCart className="w-5 h-5" />
+              </Button>
+
               {isLoggedIn ? (
                 <Button
                   variant={currentPage === 'profile' ? 'default' : 'outline'}
@@ -128,7 +150,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
               )}
             </div>
 
-            {/* 🌟 漢堡選單按鈕 (僅在手機版 md 以下顯示) */}
+            {/* 漢堡選單按鈕 */}
             <div className="md:hidden">
               <Button
                 variant="ghost"
@@ -143,7 +165,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
         </div>
       </div>
 
-      {/* 🌟 手機版下拉選單內容 */}
+      {/* 手機版下拉選單內容 */}
       {isMenuOpen && (
         <div className="md:hidden border-t border-black/5 pb-4" style={{ backgroundColor: '#D5C1DC' }}>
           <div className="flex flex-col gap-2 px-4 pt-4">
@@ -168,6 +190,15 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
             >
               <PlusCircle className="w-4 h-4 mr-3" /> 刊登商品
             </Button>
+
+            <Button
+              variant={currentPage === 'cart' ? 'secondary' : 'ghost'}
+              className="justify-start rounded-xl"
+              onClick={handleCartClick}
+            >
+              <ShoppingCart className="w-4 h-4 mr-3" /> 購物車
+            </Button>
+
             {isLoggedIn && (
               <Button
                 variant={currentPage === 'chat' ? 'secondary' : 'ghost'}
@@ -177,7 +208,9 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
                 <MessageCircle className="w-4 h-4 mr-3" /> 訊息
               </Button>
             )}
+
             <hr className="my-2 border-black/5" />
+
             {isLoggedIn ? (
               <Button
                 variant={currentPage === 'profile' ? 'default' : 'outline'}
@@ -212,6 +245,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
         open={showLoginPrompt}
         onOpenChange={setShowLoginPrompt}
         onConfirm={handleLoginConfirm}
+        description={promptMessage} // 🌟 這裡把我們設定好的文字傳進去
       />
     </nav>
   );

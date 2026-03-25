@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "./components/Navigation";
 import { HomePage } from "./components/HomePage";
 import { LoginPage } from "./components/LoginPage";
@@ -16,11 +16,10 @@ import { AIConfirmationPage } from "./components/AIConfirmationPage";
 import { Toaster } from "./components/ui/sonner";
 import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { EditProductPage } from "./components/EditProductPage";
-// 🌟 1. 引入剛剛建立的賣家賣場頁面
 import { SellerProfilePage } from "./components/SellerProfilePage";
+import { CartPage } from "./components/CartPage";
 
-// 🌟 2. 在 PageType 加上 'seller-profile'
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile';
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart';
 
 const aiProductData = [
   {
@@ -57,11 +56,28 @@ export default function App() {
   const [previousPage, setPreviousPage] = useState<PageType>('home');
   const [searchKeyword, setSearchKeyword] = useState("");
 
+  // 🌟 新增：網頁一載入，馬上檢查 LocalStorage 同步登入狀態
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user && user.email) {
+            setIsLoggedIn(true); // 如果有資料，自動恢復成登入狀態！
+          }
+        } catch (error) {
+          console.error("解析使用者資料失敗", error);
+        }
+      }
+    };
+    checkLoginStatus();
+  }, []); // 空陣列代表只在網頁初始載入時執行一次
+
   const handleNavigate = (page: string, productId?: string, searchQuery?: string) => {
     setPreviousPage(currentPage);
     setCurrentPage(page as PageType);
 
-    // 這裡的 productId 在跳轉到 seller-profile 時，會用來當作 sellerEmail
     if (productId) {
       setCurrentProductId(productId);
     }
@@ -79,6 +95,7 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    localStorage.removeItem('user'); // 確保登出時清空資料
   };
 
   const handleAICapture = () => {
@@ -93,7 +110,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 🌟 3. 在選單隱藏條件裡加上 seller-profile */}
       {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && currentPage !== 'seller-profile' && (
         <Navigation
           currentPage={currentPage}
@@ -129,12 +145,15 @@ export default function App() {
         />
       )}
 
-      {/* 🌟 4. 新增賣場首頁的路由 */}
       {currentPage === 'seller-profile' && currentProductId && (
         <SellerProfilePage
           onNavigate={handleNavigate}
           sellerEmail={currentProductId}
         />
+      )}
+
+      {currentPage === 'cart' && (
+        <CartPage onNavigate={handleNavigate} />
       )}
 
       {currentPage === 'post' && (

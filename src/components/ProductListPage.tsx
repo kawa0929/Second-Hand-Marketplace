@@ -1,4 +1,4 @@
-import { Search, Filter, Heart, SlidersHorizontal } from "lucide-react";
+import { Search, Filter, Heart, SlidersHorizontal, AlertCircle } from "lucide-react"; // 🌟 引入 AlertCircle
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
+import { toast } from "sonner"; // 🌟 引入 toast
 
 interface ProductListPageProps {
   onNavigate: (page: string, productId?: string) => void;
@@ -37,7 +38,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
-  // 🌟 新增：記錄當下「真正送出搜尋」的關鍵字，解決畫面文字不同步的問題
   const [appliedSearch, setAppliedSearch] = useState(initialSearch);
 
   const fetchProducts = async (keyword: string) => {
@@ -67,8 +67,27 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
 
   const handleLocalSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setAppliedSearch(searchQuery.trim()); // 更新畫面顯示的標題
+    setAppliedSearch(searchQuery.trim());
     fetchProducts(searchQuery.trim());
+  };
+
+  // 🌟 核心修改：智慧點擊處理邏輯 (跟首頁一致)
+  const handleProductClick = (product: any) => {
+    const userStr = localStorage.getItem('user');
+    const currentUser = userStr ? JSON.parse(userStr) : null;
+
+    if (product.status === "已下架") {
+      if (currentUser && currentUser.email === product.sellerEmail) {
+        toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
+        onNavigate('edit-product', product.id);
+      } else {
+        toast.error("此商品目前已下架，無法查看詳情喔！", {
+          style: { background: '#4b5563', color: '#fff', border: 'none' }
+        });
+      }
+    } else {
+      onNavigate('product-detail', product.id);
+    }
   };
 
   return (
@@ -76,7 +95,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1>瀏覽商品</h1>
+          <h1 className="text-3xl font-bold">瀏覽商品</h1>
           <p className="text-muted-foreground mt-2">
             探索數千件優質二手商品
           </p>
@@ -87,9 +106,9 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
           <div className="flex flex-col md:flex-row gap-4">
             <form onSubmit={handleLocalSearch} className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
+              <input
                 placeholder="搜尋商品..."
-                className="pl-10 h-11 rounded-xl bg-input-background border-0"
+                className="w-full pl-10 h-11 rounded-xl bg-neutral-50 border-0 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -97,7 +116,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
 
             <div className="flex gap-2">
               <Select defaultValue="all">
-                <SelectTrigger className="w-[160px] h-11 rounded-xl bg-input-background border-0">
+                <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
                   <SelectValue placeholder="分類" />
                 </SelectTrigger>
                 <SelectContent>
@@ -110,7 +129,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
               </Select>
 
               <Select defaultValue="recent">
-                <SelectTrigger className="w-[160px] h-11 rounded-xl bg-input-background border-0">
+                <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
                   <SelectValue placeholder="排序方式" />
                 </SelectTrigger>
                 <SelectContent>
@@ -146,30 +165,42 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             {products.map((product) => (
               <Card
                 key={product.id}
-                className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white"
-                onClick={() => onNavigate('product-detail', product.id)}
+                className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
+                onClick={() => handleProductClick(product)} // 🌟 套用智慧點擊
               >
                 <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                  {/* 🌟 下架反灰效果 */}
                   <ImageWithFallback
                     src={product.images?.[0] || ""}
                     alt={product.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
                   />
+
+                  {/* 🌟 狀態標籤與 Alert 圖示 */}
+                  <div className="absolute top-3 left-3">
+                    <Badge variant={product.status === '已下架' ? 'outline' : 'secondary'} className={`rounded-full shadow-sm ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : ''}`}>
+                      {product.status === '已下架' ? '已下架' : (categoryMap[product.category] || "其他")}
+                    </Badge>
+                  </div>
+
+                  {product.status === '已下架' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+                      <AlertCircle className="w-10 h-10 text-white/70" />
+                    </div>
+                  )}
+
                   <button
                     className="absolute top-3 right-3 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-sm"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Heart className="w-4 h-4" />
                   </button>
-                  <div className="absolute top-3 left-3">
-                    <Badge variant="secondary" className="rounded-full shadow-sm">
-                      {categoryMap[product.category] || "其他"}
-                    </Badge>
-                  </div>
                 </div>
                 <CardContent className="p-4">
-                  <div className="mb-1 font-medium truncate">{product.title}</div>
-                  <div className="mb-3 text-primary font-bold text-lg">
+                  <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
+                    {product.title}
+                  </div>
+                  <div className={`mb-3 font-bold text-lg ${product.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
                     NT${Number(product.price).toLocaleString()}
                   </div>
                   <div className="flex items-center justify-between gap-2 text-sm">
@@ -177,7 +208,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                       {conditionMap[product.condition] || "二手"}
                     </Badge>
                     <span className="text-muted-foreground truncate max-w-[100px]">
-                      {/* 🌟 修改：移除了 Email 的判斷，如果有地點就顯示，沒有就不顯示 */}
                       {product.location || ""}
                     </span>
                   </div>
@@ -188,7 +218,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
         )}
 
         {/* Load More */}
-        {/* 🌟 修改：只有當商品數量大於等於 8 件時（表示可能還有下一頁），才顯示載入更多按鈕 */}
         {!isLoading && products.length >= 8 && (
           <div className="text-center mt-12">
             <Button variant="outline" size="lg" className="rounded-full">

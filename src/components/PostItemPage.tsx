@@ -11,7 +11,7 @@ import { toast } from "sonner";
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
   aiGeneratedData?: any;
-  previousPage?: string; // 🌟 1. 新增接收上一頁的變數
+  previousPage?: string;
 }
 
 export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home' }: PostItemPageProps) {
@@ -21,11 +21,11 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [category, setCategory] = useState("");
   const [condition, setCondition] = useState("");
   const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("1"); // 🌟 新增：庫存數量，預設為 1
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 當 AI 資料進來時自動填入
   useEffect(() => {
     if (aiGeneratedData) {
       if (aiGeneratedData.image) setImages([aiGeneratedData.image]);
@@ -34,11 +34,11 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
       setPrice(aiGeneratedData.price || "");
+      setStock("1"); // AI 生成的通常預設為 1
       toast.success("✨ 商品資訊已自動填入！");
     }
   }, [aiGeneratedData]);
 
-  // 手動上傳圖片到 ImgBB
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -72,7 +72,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       toast.error("網路連線錯誤");
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = ""; // 清空 input
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -87,6 +87,12 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       return;
     }
 
+    // 防呆：確保數量大於等於 1
+    if (parseInt(stock) < 1 || isNaN(parseInt(stock))) {
+      toast.error("數量請至少輸入 1");
+      return;
+    }
+
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     const postData = {
@@ -94,8 +100,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       description,
       category,
       condition,
-      price,
-      location: "", // 保留空字串，防止 Firebase 存入 undefined 導致後端報錯
+      price: Number(price), // 確保傳遞數字給後端
+      stock: parseInt(stock), // 🌟 新增：傳遞數量給後端
+      location: "",
       images,
       sellerEmail: user.email
     };
@@ -109,7 +116,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       const data = await response.json();
       if (data.success) {
         toast.success("商品刊登成功！🎉");
-        // 🌟 發布成功後，通常固定回到個人頁面看剛刊登的商品
         onNavigate('profile');
       }
     } catch (error) {
@@ -120,7 +126,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 🌟 2. 修改左上角的取消按鈕，改為動態返回上一頁 */}
         <Button variant="ghost" onClick={() => onNavigate(previousPage)} className="mb-6 rounded-full">
           <ChevronLeft className="w-4 h-4 mr-2" /> 取消
         </Button>
@@ -211,7 +216,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                       <SelectItem value="sports">運動用品</SelectItem>
                       <SelectItem value="books">書籍</SelectItem>
                       <SelectItem value="toys">玩具</SelectItem>
-                      {/* 🌟 補齊了缺少的三個分類 */}
                       <SelectItem value="plants">居家園藝</SelectItem>
                       <SelectItem value="kitchen">廚房用品</SelectItem>
                       <SelectItem value="idol">偶像周邊</SelectItem>
@@ -240,18 +244,35 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6">
-              <div className="space-y-2">
-                <Label htmlFor="price">售價 *</Label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
-                  <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" required />
+              {/* 🌟 數量與售價並排 */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">售價 *</Label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
+                    <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" required />
+                  </div>
+                </div>
+
+                {/* 🌟 新增：商品數量欄位 */}
+                <div className="space-y-2">
+                  <Label htmlFor="stock">商品數量 *</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    min="1"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    placeholder="輸入數量 (預設為 1)"
+                    className="rounded-xl h-11 bg-white border-border"
+                    required
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <div className="flex gap-4">
-            {/* 🌟 3. 修改最下方的取消按鈕，改為動態返回上一頁 */}
             <Button type="button" variant="outline" size="lg" className="flex-1 rounded-full" onClick={() => onNavigate(previousPage)}>取消</Button>
             <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
               {isUploading ? "圖片上傳中..." : "發布刊登"}

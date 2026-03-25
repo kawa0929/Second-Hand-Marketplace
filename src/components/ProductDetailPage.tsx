@@ -1,4 +1,4 @@
-import { Heart, Share2, MessageCircle, ChevronLeft } from "lucide-react";
+import { Heart, Share2, MessageCircle, ChevronLeft, ShoppingCart, ShoppingBag } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -35,7 +35,7 @@ const conditionMap: Record<string, string> = {
   fair: "尚可",
 };
 
-// 🌟 處理相對時間的函數
+// 處理相對時間的函數
 const formatPostDate = (dateString?: string) => {
   if (!dateString) return "剛剛";
 
@@ -84,6 +84,69 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     if (productId) fetchProduct();
   }, [productId, onNavigate, previousPage]);
 
+  // 🌟 輔助函式：取得當前登入的使用者
+  const getCurrentUser = () => {
+    const userStr = localStorage.getItem('user');
+    try {
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // 🌟 動作 1：聊聊按鈕邏輯
+  const handleChatClick = () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.email) {
+      toast.error("請先登入才能傳送訊息喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+    if (currentUser.email === product.sellerEmail) {
+      toast.error("這是您自己刊登的商品，無法傳送訊息給自己！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } }); // 橘黃色警告
+      return;
+    }
+    onNavigate('chat');
+  };
+
+  // 🌟 動作 2：加入購物車邏輯
+  const handleAddToCart = () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.email) {
+      toast.error("請先登入才能加入購物車喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+    if (currentUser.email === product.sellerEmail) {
+      toast.error("無法將自己刊登的商品加入購物車！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existingItem = savedCart.find((item: any) => item.productId === productId);
+
+    if (existingItem) {
+      existingItem.quantity += 1;
+    } else {
+      savedCart.push({ productId: productId, quantity: 1 });
+    }
+
+    localStorage.setItem('cart', JSON.stringify(savedCart));
+    toast.success("🛒 已加入購物車！");
+  };
+
+  // 🌟 動作 3：立即下單邏輯
+  const handleCheckoutClick = () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.email) {
+      toast.error("請先登入才能購買喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+    if (currentUser.email === product.sellerEmail) {
+      toast.error("無法購買自己刊登的商品喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
+      return;
+    }
+    toast.info("🚀 即將推出：結帳與付款功能");
+  };
+
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
   if (!product) return null;
 
@@ -92,7 +155,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const displayCondition = conditionMap[product.condition] || "未知";
   const images = product.images && product.images.length > 0 ? product.images : ["https://via.placeholder.com/800"];
 
-  // 取得賣家顯示名稱與頭像
   const sellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
   const sellerAvatar = product.sellerInfo?.avatarUrl || "";
 
@@ -161,10 +223,10 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <h1 className="mb-2 text-3xl font-bold">{product.title}</h1>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" className="rounded-full">
+                  <Button variant="outline" size="icon" className="rounded-full" onClick={() => toast.success("商品連結已複製！")}>
                     <Share2 className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="rounded-full">
+                  <Button variant="outline" size="icon" className="rounded-full" onClick={() => toast.success("已加入收藏！")}>
                     <Heart className="w-4 h-4" />
                   </Button>
                 </div>
@@ -172,10 +234,33 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
 
               <div className="mb-6 text-3xl font-bold text-primary">{formattedPrice}</div>
 
+              {/* 購物車、聊聊與結帳按鈕排版 */}
               <div className="flex gap-3">
-                <Button size="lg" className="flex-1 rounded-xl">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  聯絡賣家
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 rounded-xl"
+                  onClick={handleChatClick} // 🌟 接上聊聊檢查
+                >
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  聊聊
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="flex-1 rounded-xl"
+                  onClick={handleAddToCart} // 🌟 接上購物車檢查
+                >
+                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  加購物車
+                </Button>
+                <Button
+                  size="lg"
+                  className="flex-[1.5] rounded-xl"
+                  onClick={handleCheckoutClick} // 🌟 接上下單檢查
+                >
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  立即下單
                 </Button>
               </div>
             </div>
@@ -238,9 +323,8 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                     size="sm"
                     className="rounded-full"
                     onClick={() => {
-                      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                      // 🌟 解鎖！看是不是自己，如果是自己回 profile，不是就去 seller-profile！
-                      if (currentUser.email === product.sellerEmail) {
+                      const currentUser = getCurrentUser(); // 🌟 沿用上面寫好的檢查函式
+                      if (currentUser && currentUser.email === product.sellerEmail) {
                         onNavigate('profile');
                       } else {
                         onNavigate('seller-profile', product.sellerEmail);
@@ -251,7 +335,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   </Button>
                 </div>
 
-                {/* 數據綁定真實後端資料 */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-neutral-50 rounded-xl">
                   <div className="text-center">
                     <div className="mb-1 font-medium text-lg">

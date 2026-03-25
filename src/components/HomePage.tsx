@@ -1,4 +1,4 @@
-import { Search, TrendingUp, Heart } from "lucide-react";
+import { Search, TrendingUp, Heart, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "./ui/badge";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { LoginPromptDialog } from "./LoginPromptDialog";
 import { useState, useEffect } from "react";
+import { toast } from "sonner"; // 🌟 引入 toast
 
 interface HomePageProps {
   onNavigate: (page: string, productId?: string, searchQuery?: string) => void;
@@ -29,7 +30,6 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [latestProducts, setLatestProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -52,6 +52,29 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const handleLoginConfirm = () => {
     setShowLoginPrompt(false);
     onNavigate('login');
+  };
+
+  // 🌟 核心修改：智慧點擊處理邏輯
+  const handleProductClick = (product: any) => {
+    const userStr = localStorage.getItem('user');
+    const currentUser = userStr ? JSON.parse(userStr) : null;
+
+    if (product.status === "已下架") {
+      // 1. 如果是賣家本人點擊自己的下架商品
+      if (currentUser && currentUser.email === product.sellerEmail) {
+        toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
+        onNavigate('edit-product', product.id);
+      }
+      // 2. 如果是其他使用者點擊
+      else {
+        toast.error("此商品目前已下架，無法查看詳情喔！", {
+          style: { background: '#4b5563', color: '#fff', border: 'none' } // 深灰色提示
+        });
+      }
+    } else {
+      // 一般上架中的商品正常跳轉
+      onNavigate('product-detail', product.id);
+    }
   };
 
   return (
@@ -123,15 +146,29 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
             {latestProducts.map((product) => (
               <Card
                 key={product.id}
-                className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white"
-                onClick={() => onNavigate('product-detail', product.id)}
+                className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
+                onClick={() => handleProductClick(product)} // 🌟 使用新的點擊函式
               >
                 <div className="relative aspect-square overflow-hidden bg-neutral-100">
                   <ImageWithFallback
                     src={product.images?.[0] || ""}
                     alt={product.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
                   />
+
+                  {/* 🌟 狀態標籤與遮罩圖示 */}
+                  <div className="absolute top-3 left-3">
+                    {product.status === '已下架' && (
+                      <Badge variant="outline" className="bg-neutral-200/90 text-neutral-600 border-none rounded-full">已下架</Badge>
+                    )}
+                  </div>
+
+                  {product.status === '已下架' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+                      <AlertCircle className="w-10 h-10 text-white/70" />
+                    </div>
+                  )}
+
                   <button
                     className="absolute top-3 right-3 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-sm"
                     onClick={(e) => e.stopPropagation()}
@@ -140,15 +177,16 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                   </button>
                 </div>
                 <CardContent className="p-4">
-                  <div className="mb-1 font-medium truncate">{product.title}</div>
-                  <div className="mb-3 text-primary font-bold text-lg">
+                  <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
+                    {product.title}
+                  </div>
+                  <div className={`mb-3 font-bold text-lg ${product.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
                     NT${Number(product.price).toLocaleString()}
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="secondary" className="rounded-full text-[10px]">
                       {product.condition === 'new' ? '全新' : '二手'}
                     </Badge>
-                    {/* 🌟 修改：已經把商品卡片右下角的 ID 顯示完全移除了！ */}
                   </div>
                 </CardContent>
               </Card>

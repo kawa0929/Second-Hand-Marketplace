@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt } from "lucide-react";
+import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle } from "lucide-react"; // 🌟 引入 AlertCircle
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { toast } from "sonner"; // 🌟 確保有引入 toast
 
 interface UserProfilePageProps {
   onNavigate: (page: string, productId?: string) => void;
@@ -34,7 +35,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
   const [userListings, setUserListings] = useState<ListingItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
-  // 🌟 新增：用來儲存賣場統計數據
   const [sellerStats, setSellerStats] = useState({
     totalProducts: 0,
     soldCount: 0,
@@ -48,7 +48,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
       const user = JSON.parse(storedUser);
       setCurrentUser(user);
 
-      // 1. 撈取商品清單
       fetch(`http://localhost:3001/api/user-products/${user.email}`)
         .then(res => res.json())
         .then(data => {
@@ -56,7 +55,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
         })
         .catch(err => console.error("抓取商品失敗:", err));
 
-      // 🌟 2. 撈取賣場統計數據 (好評率、售出數等)
       fetch(`http://localhost:3001/api/user-stats/${user.email}`)
         .then(res => res.json())
         .then(data => {
@@ -75,6 +73,17 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
     onNavigate('home');
   };
 
+  // 🌟 智慧處理商品點擊
+  const handleItemClick = (item: ListingItem) => {
+    if (item.status === "已下架") {
+      // 既然是自己的個人主頁，下架商品點擊後直接去編輯頁面（方便重新上架）
+      toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
+      onNavigate('edit-product', item.id);
+    } else {
+      onNavigate('product-detail', item.id);
+    }
+  };
+
   if (!currentUser) return <div className="min-h-screen bg-neutral-50 flex justify-center items-center">載入中...</div>;
 
   return (
@@ -88,7 +97,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
 
               <div className="relative">
                 <Avatar className="w-24 h-24 text-5xl">
-                  {/* 🌟 統一頭像判斷邏輯 (Emoji 或圖片) */}
                   {currentUser.avatarUrl ? (
                     currentUser.avatarUrl.startsWith('http') || currentUser.avatarUrl.includes('data:image') ? (
                       <AvatarImage src={currentUser.avatarUrl} className="object-cover" />
@@ -152,7 +160,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                   </Button>
                 </div>
 
-                {/* 🌟 數據統計區塊：現在會跟隨後端 API 自動更新 */}
                 <div className="grid grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
                     <div className="mb-1 font-bold text-lg">{sellerStats.totalProducts}</div>
@@ -176,7 +183,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
           </CardContent>
         </Card>
 
-        {/* 下方的 Tabs 分頁保持不變 */}
         <Tabs defaultValue="listings" className="space-y-6">
           <TabsList className="bg-white border border-border rounded-xl p-1">
             <TabsTrigger value="listings" className="rounded-lg">
@@ -202,16 +208,37 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {userListings.map((item) => (
-                  <Card key={item.id} className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden" onClick={() => onNavigate('product-detail', item.id)}>
+                  <Card
+                    key={item.id}
+                    className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden ${item.status === '已下架' ? 'opacity-80' : ''}`}
+                    onClick={() => handleItemClick(item)} // 🌟 使用智慧點擊函式
+                  >
                     <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                      <ImageWithFallback src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      {/* 🌟 下架商品套用灰階濾鏡 */}
+                      <ImageWithFallback
+                        src={item.image}
+                        alt={item.title}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${item.status === '已下架' ? 'grayscale' : ''}`}
+                      />
                       <div className="absolute top-3 right-3">
-                        <Badge variant="secondary" className="rounded-full">{item.status}</Badge>
+                        <Badge variant={item.status === '已下架' ? 'outline' : 'secondary'} className={`rounded-full ${item.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : ''}`}>
+                          {item.status}
+                        </Badge>
                       </div>
+                      {/* 🌟 下架時顯示警示圖標蓋在照片上 */}
+                      {item.status === '已下架' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                          <AlertCircle className="w-12 h-12 text-white/80" />
+                        </div>
+                      )}
                     </div>
                     <CardContent className="p-4">
-                      <div className="mb-2 font-medium">{item.title}</div>
-                      <div className="mb-3 font-bold text-primary">NT${Number(item.price.replace('NT$', '').replace(',', '')).toLocaleString()}</div>
+                      <div className={`mb-2 font-medium ${item.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
+                        {item.title}
+                      </div>
+                      <div className={`mb-3 font-bold ${item.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
+                        NT${Number(item.price.replace('NT$', '').replace(',', '')).toLocaleString()}
+                      </div>
                       <div className="flex items-center justify-between text-muted-foreground text-sm">
                         <span>{item.views} 次瀏覽</span>
                         <Button
@@ -233,7 +260,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             )}
           </TabsContent>
 
-          {/* 收藏分頁保持不變 */}
           <TabsContent value="favorites" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3>已收藏的商品 ({favorites.length})</h3>
