@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle } from "lucide-react"; // 🌟 引入 AlertCircle
+import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { toast } from "sonner"; // 🌟 確保有引入 toast
+import { toast } from "sonner";
 
 interface UserProfilePageProps {
   onNavigate: (page: string, productId?: string) => void;
@@ -27,7 +27,6 @@ interface FavoriteItem {
   title: string;
   price: string;
   image: string;
-  location: string;
 }
 
 export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) {
@@ -48,6 +47,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
       const user = JSON.parse(storedUser);
       setCurrentUser(user);
 
+      // 1. 撈取我的商品清單
       fetch(`http://localhost:3001/api/user-products/${user.email}`)
         .then(res => res.json())
         .then(data => {
@@ -55,12 +55,21 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
         })
         .catch(err => console.error("抓取商品失敗:", err));
 
+      // 2. 撈取賣場統計數據
       fetch(`http://localhost:3001/api/user-stats/${user.email}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setSellerStats(data.stats);
         })
         .catch(err => console.error("抓取統計失敗:", err));
+
+      // 🌟 3. 撈取我的收藏清單
+      fetch(`http://localhost:3001/api/favorites/${user.email}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setFavorites(data.favorites);
+        })
+        .catch(err => console.error("抓取收藏失敗:", err));
 
     } else {
       onNavigate('login');
@@ -73,10 +82,8 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
     onNavigate('home');
   };
 
-  // 🌟 智慧處理商品點擊
   const handleItemClick = (item: ListingItem) => {
     if (item.status === "已下架") {
-      // 既然是自己的個人主頁，下架商品點擊後直接去編輯頁面（方便重新上架）
       toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
       onNavigate('edit-product', item.id);
     } else {
@@ -94,7 +101,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
         <Card className="rounded-2xl border-border mb-8">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row gap-6">
-
               <div className="relative">
                 <Avatar className="w-24 h-24 text-5xl">
                   {currentUser.avatarUrl ? (
@@ -122,7 +128,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                         <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">管理員</Badge>
                       )}
                     </h2>
-
                     <div className="flex flex-row flex-wrap items-center gap-5 text-sm text-muted-foreground mt-2">
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <Calendar className="w-4 h-4" />
@@ -132,14 +137,12 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                             : "加入於 2026 年 3 月"}
                         </span>
                       </div>
-
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <MapPin className="w-4 h-4" />
                         <span>{currentUser.address || "尚未設定地區"}</span>
                       </div>
                     </div>
                   </div>
-
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="rounded-full" onClick={() => onNavigate('edit-profile')}>
                       <Settings className="w-4 h-4 mr-2" /> 編輯個人資料
@@ -149,17 +152,14 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                     </Button>
                   </div>
                 </div>
-
                 <p className="text-muted-foreground mb-6 whitespace-pre-wrap">
                   {currentUser.bio || `哈囉！我是 ${currentUser.fullname}，歡迎來到我的二手賣場。`}
                 </p>
-
                 <div className="flex gap-3 mb-6">
                   <Button variant="outline" size="sm" className="rounded-full" onClick={() => onNavigate('transactions')}>
                     <Receipt className="w-4 h-4 mr-2" /> 交易紀錄
                   </Button>
                 </div>
-
                 <div className="grid grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-neutral-50 rounded-xl">
                     <div className="mb-1 font-bold text-lg">{sellerStats.totalProducts}</div>
@@ -198,7 +198,6 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
               <h3>上架中的商品 ({userListings.length})</h3>
               <Button className="rounded-full" onClick={() => onNavigate('post')}>新增刊登</Button>
             </div>
-
             {userListings.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-border">
                 <Package className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
@@ -208,24 +207,14 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {userListings.map((item) => (
-                  <Card
-                    key={item.id}
-                    className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden ${item.status === '已下架' ? 'opacity-80' : ''}`}
-                    onClick={() => handleItemClick(item)} // 🌟 使用智慧點擊函式
-                  >
+                  <Card key={item.id} className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden ${item.status === '已下架' ? 'opacity-80' : ''}`} onClick={() => handleItemClick(item)}>
                     <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                      {/* 🌟 下架商品套用灰階濾鏡 */}
-                      <ImageWithFallback
-                        src={item.image}
-                        alt={item.title}
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${item.status === '已下架' ? 'grayscale' : ''}`}
-                      />
+                      <ImageWithFallback src={item.image} alt={item.title} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${item.status === '已下架' ? 'grayscale' : ''}`} />
                       <div className="absolute top-3 right-3">
                         <Badge variant={item.status === '已下架' ? 'outline' : 'secondary'} className={`rounded-full ${item.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : ''}`}>
                           {item.status}
                         </Badge>
                       </div>
-                      {/* 🌟 下架時顯示警示圖標蓋在照片上 */}
                       {item.status === '已下架' && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                           <AlertCircle className="w-12 h-12 text-white/80" />
@@ -260,14 +249,40 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             )}
           </TabsContent>
 
+          {/* 🌟 收藏分頁：現在會真實顯示收藏的商品 */}
           <TabsContent value="favorites" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3>已收藏的商品 ({favorites.length})</h3>
             </div>
-            <div className="text-center py-12 bg-white rounded-2xl border border-border">
-              <Heart className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
-              <p className="text-muted-foreground">目前還沒有收藏任何商品喔！</p>
-            </div>
+
+            {favorites.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-border">
+                <Heart className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+                <p className="text-muted-foreground">目前還沒有收藏任何商品喔！</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {favorites.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden"
+                    onClick={() => onNavigate('product-detail', item.id)}
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                      <ImageWithFallback
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="mb-2 font-medium">{item.title}</div>
+                      <div className="mb-1 font-bold text-primary">{item.price}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

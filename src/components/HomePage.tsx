@@ -6,7 +6,7 @@ import { Badge } from "./ui/badge";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { LoginPromptDialog } from "./LoginPromptDialog";
 import { useState, useEffect } from "react";
-import { toast } from "sonner"; // 🌟 引入 toast
+import { toast } from "sonner";
 
 interface HomePageProps {
   onNavigate: (page: string, productId?: string, searchQuery?: string) => void;
@@ -29,10 +29,12 @@ const categories = [
 export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [latestProducts, setLatestProducts] = useState<any[]>([]);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]); // 🌟 儲存已收藏的 ID
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
+    // 1. 抓取最新商品
     fetch('http://localhost:3001/api/products')
       .then(res => res.json())
       .then(data => {
@@ -40,7 +42,51 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       })
       .catch(err => console.error("獲取商品失敗:", err))
       .finally(() => setIsLoading(false));
+
+    // 2. 🌟 如果有登入，抓取該用戶的收藏清單 ID
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      fetch(`http://localhost:3001/api/favorites/${user.email}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUserFavorites(data.favorites.map((f: any) => f.id));
+          }
+        });
+    }
   }, []);
+
+  // 🌟 切換收藏函式
+  const handleToggleFavorite = async (e: React.MouseEvent, productId: string) => {
+    e.stopPropagation(); // 阻止觸發卡片的點擊事件
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    const user = JSON.parse(userStr);
+
+    try {
+      const res = await fetch('http://localhost:3001/api/favorites/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, productId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.isFavorite) {
+          setUserFavorites(prev => [...prev, productId]);
+          toast.success("已加入收藏 ❤️");
+        } else {
+          setUserFavorites(prev => prev.filter(id => id !== productId));
+          toast.success("已取消收藏");
+        }
+      }
+    } catch (e) {
+      toast.error("操作失敗，請檢查網路");
+    }
+  };
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -54,25 +100,20 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     onNavigate('login');
   };
 
-  // 🌟 核心修改：智慧點擊處理邏輯
   const handleProductClick = (product: any) => {
     const userStr = localStorage.getItem('user');
     const currentUser = userStr ? JSON.parse(userStr) : null;
 
     if (product.status === "已下架") {
-      // 1. 如果是賣家本人點擊自己的下架商品
       if (currentUser && currentUser.email === product.sellerEmail) {
         toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
         onNavigate('edit-product', product.id);
-      }
-      // 2. 如果是其他使用者點擊
-      else {
+      } else {
         toast.error("此商品目前已下架，無法查看詳情喔！", {
-          style: { background: '#4b5563', color: '#fff', border: 'none' } // 深灰色提示
+          style: { background: '#4b5563', color: '#fff', border: 'none' }
         });
       }
     } else {
-      // 一般上架中的商品正常跳轉
       onNavigate('product-detail', product.id);
     }
   };
@@ -84,9 +125,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center max-w-3xl mx-auto">
             <h1 className="text-4xl font-bold tracking-tight">輕鬆買賣二手好物</h1>
-            <p className="mt-4 text-muted-foreground text-lg">
-              探索社群中的優質二手商品，享受超值好價格
-            </p>
+            <p className="mt-4 text-muted-foreground text-lg">探索社群中的優質二手商品，享受超值好價格</p>
 
             <form onSubmit={handleSearch} className="mt-8 flex gap-2 max-w-2xl mx-auto">
               <div className="flex-1 relative">
@@ -98,13 +137,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Button
-                type="submit"
-                size="lg"
-                className="rounded-full px-8 shadow-md"
-              >
-                搜尋
-              </Button>
+              <Button type="submit" size="lg" className="rounded-full px-8 shadow-md">搜尋</Button>
             </form>
           </div>
         </div>
@@ -147,7 +180,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
               <Card
                 key={product.id}
                 className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
-                onClick={() => handleProductClick(product)} // 🌟 使用新的點擊函式
+                onClick={() => handleProductClick(product)}
               >
                 <div className="relative aspect-square overflow-hidden bg-neutral-100">
                   <ImageWithFallback
@@ -156,7 +189,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
                   />
 
-                  {/* 🌟 狀態標籤與遮罩圖示 */}
+                  {/* 🌟 狀態標籤 */}
                   <div className="absolute top-3 left-3">
                     {product.status === '已下架' && (
                       <Badge variant="outline" className="bg-neutral-200/90 text-neutral-600 border-none rounded-full">已下架</Badge>
@@ -169,18 +202,22 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                     </div>
                   )}
 
+                  {/* 🌟 修改後的愛心按鈕：根據 userFavorites 同步變色 */}
                   <button
-                    className="absolute top-3 right-3 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-sm"
-                    onClick={(e) => e.stopPropagation()}
+                    className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
+                        ? 'bg-red-50 text-red-500'
+                        : 'bg-white/80 hover:bg-white text-neutral-600'
+                      }`}
+                    onClick={(e) => handleToggleFavorite(e, product.id)}
                   >
-                    <Heart className="w-4 h-4" />
+                    <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
                   </button>
                 </div>
                 <CardContent className="p-4">
                   <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
                     {product.title}
                   </div>
-                  <div className={`mb-3 font-bold text-lg ${product.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
+                  <div className={`mb-3 font-bold text-lg ${product.status === 'resale' || product.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
                     NT${Number(product.price).toLocaleString()}
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -198,9 +235,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       {/* Footer */}
       <footer className="border-t border-border mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-sm text-muted-foreground">
-            © 二手好物管理平台
-          </p>
+          <p className="text-sm text-muted-foreground">© 二手好物管理平台</p>
         </div>
       </footer>
 
@@ -208,6 +243,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
         open={showLoginPrompt}
         onOpenChange={setShowLoginPrompt}
         onConfirm={handleLoginConfirm}
+        description="登入後即可收藏您心儀的商品！"
       />
     </div>
   );

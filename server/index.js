@@ -392,6 +392,75 @@ app.delete('/api/product/:id', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+// 🌟 16. 切換收藏狀態 (如果已收藏則取消，未收藏則新增)
+app.post('/api/favorites/toggle', async (req, res) => {
+    try {
+        const { email, productId } = req.body;
+        const favId = `${email}_${productId}`; // 建立唯一的收藏 ID
+        const favRef = db.collection('favorites').doc(favId);
+        const doc = await favRef.get();
+
+        if (doc.exists) {
+            await favRef.delete();
+            res.status(200).json({ success: true, isFavorite: false, message: '已取消收藏' });
+        } else {
+            await favRef.set({
+                userEmail: email,
+                productId: productId,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            res.status(200).json({ success: true, isFavorite: true, message: '已加入收藏' });
+        }
+    } catch (error) {
+        console.error('❌ 收藏切換錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
+// 🌟 17. 撈取使用者的所有收藏商品詳細資料
+app.get('/api/favorites/:email', async (req, res) => {
+    try {
+        const userEmail = req.params.email;
+        // 先找收藏關聯表
+        const favSnapshot = await db.collection('favorites').where('userEmail', '==', userEmail).get();
+
+        if (favSnapshot.empty) {
+            return res.status(200).json({ success: true, favorites: [] });
+        }
+
+        const productIds = favSnapshot.docs.map(doc => doc.data().productId);
+
+        // 根據商品 ID 陣列去撈取真正的商品資料
+        const products = [];
+        for (const id of productIds) {
+            const productDoc = await db.collection('products').doc(id).get();
+            if (productDoc.exists) {
+                const data = productDoc.data();
+                products.push({
+                    id: productDoc.id,
+                    ...data,
+                    price: `NT$${data.price.toLocaleString()}`,
+                    image: data.images?.[0] || ""
+                });
+            }
+        }
+
+        res.status(200).json({ success: true, favorites: products });
+    } catch (error) {
+        console.error('❌ 獲取收藏錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
+// 🌟 18. 檢查單一商品是否被特定使用者收藏
+app.get('/api/favorites/check', async (req, res) => {
+    const { email, productId } = req.query;
+    if (!email || !productId) return res.json({ isFavorite: false });
+
+    const favId = `${email}_${productId}`;
+    const doc = await db.collection('favorites').doc(favId).get();
+    res.json({ isFavorite: doc.exists });
+});
 
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));

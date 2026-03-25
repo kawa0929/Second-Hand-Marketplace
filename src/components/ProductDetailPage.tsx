@@ -13,7 +13,6 @@ interface ProductDetailPageProps {
   previousPage?: string;
 }
 
-// 分類與狀況的中文對照表
 const categoryMap: Record<string, string> = {
   electronics: "電子產品",
   fashion: "服飾配件",
@@ -35,13 +34,10 @@ const conditionMap: Record<string, string> = {
   fair: "尚可",
 };
 
-// 處理相對時間的函數
 const formatPostDate = (dateString?: string) => {
   if (!dateString) return "剛剛";
-
   const postDate = new Date(dateString);
   const now = new Date();
-
   const diffTime = Math.abs(now.getTime() - postDate.getTime());
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
@@ -62,6 +58,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mainImageIndex, setMainImageIndex] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false); // 🌟 收藏狀態
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -81,10 +78,26 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       }
     };
 
-    if (productId) fetchProduct();
+    // 🌟 檢查該使用者是否已收藏此商品
+    const checkFavoriteStatus = async () => {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      try {
+        const res = await fetch(`http://localhost:3001/api/favorites/check?email=${user.email}&productId=${productId}`);
+        const data = await res.json();
+        setIsFavorite(data.isFavorite);
+      } catch (e) {
+        console.error("檢查收藏失敗", e);
+      }
+    };
+
+    if (productId) {
+      fetchProduct();
+      checkFavoriteStatus();
+    }
   }, [productId, onNavigate, previousPage]);
 
-  // 🌟 輔助函式：取得當前登入的使用者
   const getCurrentUser = () => {
     const userStr = localStorage.getItem('user');
     try {
@@ -94,7 +107,30 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     }
   };
 
-  // 🌟 動作 1：聊聊按鈕邏輯
+  // 🌟 收藏切換功能
+  const handleFavoriteToggle = async () => {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.email) {
+      toast.error("請先登入才能收藏商品喔！");
+      return;
+    }
+
+    try {
+      const res = await fetch('http://localhost:3001/api/favorites/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email, productId: productId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsFavorite(data.isFavorite);
+        toast.success(data.message);
+      }
+    } catch (error) {
+      toast.error("操作失敗，請檢查連線");
+    }
+  };
+
   const handleChatClick = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -102,13 +138,12 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
     if (currentUser.email === product.sellerEmail) {
-      toast.error("這是您自己刊登的商品，無法傳送訊息給自己！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } }); // 橘黃色警告
+      toast.error("這是您自己刊登的商品，無法傳送訊息給自己！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
       return;
     }
     onNavigate('chat');
   };
 
-  // 🌟 動作 2：加入購物車邏輯
   const handleAddToCart = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -133,7 +168,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     toast.success("🛒 已加入購物車！");
   };
 
-  // 🌟 動作 3：立即下單邏輯
   const handleCheckoutClick = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -161,25 +195,16 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Button
-          variant="ghost"
-          onClick={() => onNavigate(previousPage)}
-          className="mb-6 rounded-full"
-        >
+        <Button variant="ghost" onClick={() => onNavigate(previousPage)} className="mb-6 rounded-full">
           <ChevronLeft className="w-4 h-4 mr-2" />
           返回列表
         </Button>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Image Gallery */}
           <div className="space-y-4">
             <Card className="rounded-2xl border-border overflow-hidden">
               <div className="aspect-square bg-neutral-100">
-                <ImageWithFallback
-                  src={images[mainImageIndex]}
-                  alt={product.title}
-                  className="w-full h-full object-cover"
-                />
+                <ImageWithFallback src={images[mainImageIndex]} alt={product.title} className="w-full h-full object-cover" />
               </div>
             </Card>
 
@@ -192,11 +217,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                     className={`rounded-xl border-2 overflow-hidden cursor-pointer transition-all ${mainImageIndex === idx ? 'border-primary' : 'border-transparent hover:border-border'}`}
                   >
                     <div className="aspect-square bg-neutral-100">
-                      <ImageWithFallback
-                        src={img}
-                        alt={`縮圖 ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <ImageWithFallback src={img} alt={`縮圖 ${idx + 1}`} className="w-full h-full object-cover" />
                     </div>
                   </Card>
                 ))}
@@ -204,21 +225,14 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
             )}
           </div>
 
-          {/* Product Info */}
           <div className="space-y-6">
             <div>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-3">
-                    <Badge variant="secondary" className="rounded-full">
-                      {displayCategory}
-                    </Badge>
-                    <Badge variant="outline" className="rounded-full">
-                      {displayCondition}
-                    </Badge>
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 rounded-full">
-                      {product.status || '上架中'}
-                    </Badge>
+                    <Badge variant="secondary" className="rounded-full">{displayCategory}</Badge>
+                    <Badge variant="outline" className="rounded-full">{displayCondition}</Badge>
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 rounded-full">{product.status || '上架中'}</Badge>
                   </div>
                   <h1 className="mb-2 text-3xl font-bold">{product.title}</h1>
                 </div>
@@ -226,39 +240,31 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <Button variant="outline" size="icon" className="rounded-full" onClick={() => toast.success("商品連結已複製！")}>
                     <Share2 className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="rounded-full" onClick={() => toast.success("已加入收藏！")}>
-                    <Heart className="w-4 h-4" />
+
+                  {/* 🌟 修改後的收藏按鈕 */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={`rounded-full transition-all ${isFavorite ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' : ''}`}
+                    onClick={handleFavoriteToggle}
+                  >
+                    <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
                   </Button>
                 </div>
               </div>
 
               <div className="mb-6 text-3xl font-bold text-primary">{formattedPrice}</div>
 
-              {/* 購物車、聊聊與結帳按鈕排版 */}
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 rounded-xl"
-                  onClick={handleChatClick} // 🌟 接上聊聊檢查
-                >
+                <Button variant="outline" size="lg" className="flex-1 rounded-xl" onClick={handleChatClick}>
                   <MessageCircle className="w-5 h-5 mr-2" />
                   聊聊
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  className="flex-1 rounded-xl"
-                  onClick={handleAddToCart} // 🌟 接上購物車檢查
-                >
+                <Button variant="secondary" size="lg" className="flex-1 rounded-xl" onClick={handleAddToCart}>
                   <ShoppingCart className="w-5 h-5 mr-2" />
                   加購物車
                 </Button>
-                <Button
-                  size="lg"
-                  className="flex-[1.5] rounded-xl"
-                  onClick={handleCheckoutClick} // 🌟 接上下單檢查
-                >
+                <Button size="lg" className="flex-[1.5] rounded-xl" onClick={handleCheckoutClick}>
                   <ShoppingBag className="w-5 h-5 mr-2" />
                   立即下單
                 </Button>
@@ -267,17 +273,13 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
 
             <Separator />
 
-            {/* Description */}
             <div>
               <h3 className="mb-3 font-bold text-lg">商品描述</h3>
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {product.description}
-              </p>
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{product.description}</p>
             </div>
 
             <Separator />
 
-            {/* Details */}
             <div>
               <h3 className="mb-4 font-bold text-lg">商品資訊</h3>
               <div className="space-y-3">
@@ -289,6 +291,13 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <span className="text-muted-foreground">分類</span>
                   <span className="font-medium">{displayCategory}</span>
                 </div>
+
+                {/* 🌟 數量文字修正為黑色 */}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">商品數量</span>
+                  <span className="font-medium">{product.stock || 1}</span>
+                </div>
+
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">刊登日期</span>
                   <span className="font-medium">{formatPostDate(product.createdAt)}</span>
@@ -298,7 +307,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
 
             <Separator />
 
-            {/* Seller Info */}
             <Card className="rounded-2xl border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -314,16 +322,14 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                         sellerName.charAt(0).toUpperCase()
                       )}
                     </div>
-                    <div className="font-medium text-lg">
-                      {sellerName}
-                    </div>
+                    <div className="font-medium text-lg">{sellerName}</div>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="rounded-full"
                     onClick={() => {
-                      const currentUser = getCurrentUser(); // 🌟 沿用上面寫好的檢查函式
+                      const currentUser = getCurrentUser();
                       if (currentUser && currentUser.email === product.sellerEmail) {
                         onNavigate('profile');
                       } else {
@@ -337,21 +343,15 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
 
                 <div className="grid grid-cols-3 gap-4 p-4 bg-neutral-50 rounded-xl">
                   <div className="text-center">
-                    <div className="mb-1 font-medium text-lg">
-                      {product.sellerInfo?.totalProducts || 0}
-                    </div>
+                    <div className="mb-1 font-medium text-lg">{product.sellerInfo?.totalProducts || 0}</div>
                     <div className="text-sm text-muted-foreground">刊登商品</div>
                   </div>
                   <div className="text-center">
-                    <div className="mb-1 font-medium text-lg">
-                      {product.sellerInfo?.ratingRate || 100}%
-                    </div>
+                    <div className="mb-1 font-medium text-lg">{product.sellerInfo?.ratingRate || 100}%</div>
                     <div className="text-sm text-muted-foreground">好評率</div>
                   </div>
                   <div className="text-center">
-                    <div className="mb-1 font-medium text-lg">
-                      {product.sellerInfo?.reviewCount || 0}
-                    </div>
+                    <div className="mb-1 font-medium text-lg">{product.sellerInfo?.reviewCount || 0}</div>
                     <div className="text-sm text-muted-foreground">評價</div>
                   </div>
                 </div>

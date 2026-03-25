@@ -1,12 +1,11 @@
-import { Search, Filter, Heart, SlidersHorizontal, AlertCircle } from "lucide-react"; // 🌟 引入 AlertCircle
+import { Search, Filter, Heart, SlidersHorizontal, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
-import { toast } from "sonner"; // 🌟 引入 toast
+import { toast } from "sonner";
 
 interface ProductListPageProps {
   onNavigate: (page: string, productId?: string) => void;
@@ -36,10 +35,12 @@ const conditionMap: Record<string, string> = {
 
 export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListPageProps) {
   const [products, setProducts] = useState<any[]>([]);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]); // 🌟 儲存已收藏商品 ID
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [appliedSearch, setAppliedSearch] = useState(initialSearch);
 
+  // 抓取商品列表
   const fetchProducts = async (keyword: string) => {
     setIsLoading(true);
     try {
@@ -59,10 +60,28 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     }
   };
 
+  // 🌟 抓取使用者收藏 ID 列表
+  const fetchUserFavorites = async () => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const user = JSON.parse(userStr);
+
+    try {
+      const res = await fetch(`http://localhost:3001/api/favorites/${user.email}`);
+      const data = await res.json();
+      if (data.success) {
+        setUserFavorites(data.favorites.map((f: any) => f.id));
+      }
+    } catch (e) {
+      console.error("載入收藏清單失敗", e);
+    }
+  };
+
   useEffect(() => {
     setSearchQuery(initialSearch);
     setAppliedSearch(initialSearch);
     fetchProducts(initialSearch);
+    fetchUserFavorites(); // 🌟 載入時同步收藏狀態
   }, [initialSearch]);
 
   const handleLocalSearch = (e: React.FormEvent) => {
@@ -71,7 +90,37 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     fetchProducts(searchQuery.trim());
   };
 
-  // 🌟 核心修改：智慧點擊處理邏輯 (跟首頁一致)
+  // 🌟 切換收藏函式
+  const handleToggleFavorite = async (e: React.MouseEvent, productId: string) => {
+    e.stopPropagation(); // 防止點擊愛心時觸發 handleProductClick
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+      toast.error("請先登入才能收藏喔！");
+      return;
+    }
+    const user = JSON.parse(userStr);
+
+    try {
+      const res = await fetch('http://localhost:3001/api/favorites/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, productId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.isFavorite) {
+          setUserFavorites(prev => [...prev, productId]);
+          toast.success("已收藏 ❤️");
+        } else {
+          setUserFavorites(prev => prev.filter(id => id !== productId));
+          toast.success("已取消收藏");
+        }
+      }
+    } catch (e) {
+      toast.error("收藏操作失敗，請檢查連線");
+    }
+  };
+
   const handleProductClick = (product: any) => {
     const userStr = localStorage.getItem('user');
     const currentUser = userStr ? JSON.parse(userStr) : null;
@@ -121,10 +170,9 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部分類</SelectItem>
-                  <SelectItem value="electronics">電子產品</SelectItem>
-                  <SelectItem value="furniture">家具</SelectItem>
-                  <SelectItem value="fashion">服飾配件</SelectItem>
-                  <SelectItem value="sports">運動用品</SelectItem>
+                  {Object.entries(categoryMap).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>{value}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -166,17 +214,26 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
               <Card
                 key={product.id}
                 className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
-                onClick={() => handleProductClick(product)} // 🌟 套用智慧點擊
+                onClick={() => handleProductClick(product)}
               >
                 <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                  {/* 🌟 下架反灰效果 */}
                   <ImageWithFallback
                     src={product.images?.[0] || ""}
                     alt={product.title}
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
                   />
 
-                  {/* 🌟 狀態標籤與 Alert 圖示 */}
+                  {/* 🌟 修改後的愛心按鈕：同步變色 */}
+                  <button
+                    className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
+                        ? 'bg-red-50 text-red-500'
+                        : 'bg-white/80 hover:bg-white text-neutral-600'
+                      }`}
+                    onClick={(e) => handleToggleFavorite(e, product.id)}
+                  >
+                    <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
+                  </button>
+
                   <div className="absolute top-3 left-3">
                     <Badge variant={product.status === '已下架' ? 'outline' : 'secondary'} className={`rounded-full shadow-sm ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : ''}`}>
                       {product.status === '已下架' ? '已下架' : (categoryMap[product.category] || "其他")}
@@ -188,13 +245,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                       <AlertCircle className="w-10 h-10 text-white/70" />
                     </div>
                   )}
-
-                  <button
-                    className="absolute top-3 right-3 w-9 h-9 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-sm"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Heart className="w-4 h-4" />
-                  </button>
                 </div>
                 <CardContent className="p-4">
                   <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
