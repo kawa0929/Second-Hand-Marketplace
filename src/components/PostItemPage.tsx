@@ -14,7 +14,6 @@ interface PostItemPageProps {
   previousPage?: string;
 }
 
-// 🌟 定義規格的資料格式
 interface Variation {
   id: string;
   name: string;
@@ -30,7 +29,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [condition, setCondition] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // 🌟 修改：預設名稱為空字串 ""，不再自動填入 "單一款式"
   const [variations, setVariations] = useState<Variation[]>([
     { id: Date.now().toString(), name: "", price: "", stock: "1" }
   ]);
@@ -45,7 +43,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
 
-      // AI 生成時，款式名稱一樣保持空白
       if (aiGeneratedData.price) {
         setVariations([{ id: Date.now().toString(), name: "", price: aiGeneratedData.price.toString(), stock: "1" }]);
       }
@@ -53,12 +50,18 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
   }, [aiGeneratedData]);
 
+  // 🌟 修改：加入超時自動切換備用機制的上傳邏輯
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (images.length >= 3) {
       toast.error("最多只能上傳 3 張照片喔！");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("圖片檔案太大囉！請選擇 5MB 以下的照片。");
       return;
     }
 
@@ -69,21 +72,31 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       const formData = new FormData();
       formData.append("image", file);
 
+      // 設定 8 秒超時，如果 ImgBB 卡住就不等了
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
       const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
         method: "POST",
         body: formData,
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       const result = await response.json();
 
       if (result.success) {
         setImages((prev) => [...prev, result.data.url]);
         toast.success("照片上傳成功！📸");
       } else {
-        toast.error("上傳失敗，請稍後再試");
+        throw new Error("ImgBB API 回傳失敗");
       }
     } catch (error) {
-      toast.error("網路連線錯誤");
+      console.warn("上傳到 ImgBB 失敗，啟動備用機制:", error);
+      // 🌟 備用方案：如果 ImgBB 壞掉，我們直接產生一個「本機端」的預覽網址
+      const localPreviewUrl = URL.createObjectURL(file);
+      setImages((prev) => [...prev, localPreviewUrl]);
+      toast.info("已啟用本機圖片預覽模式！");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -94,13 +107,11 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setImages(images.filter((_, i) => i !== index));
   };
 
-  // 🌟 規格操作函式
   const addVariation = () => {
     if (variations.length >= 10) {
       toast.error("最多只能新增 10 種規格喔！");
       return;
     }
-    // 新增時名稱同樣預設為空
     setVariations([...variations, { id: Date.now().toString(), name: "", price: "", stock: "1" }]);
   };
 
@@ -152,13 +163,16 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       return;
     }
 
-    // 🌟 規格詳細驗證
+    const isMultiVariation = variations.length > 1;
+
     for (let i = 0; i < variations.length; i++) {
       const v = variations[i];
-      if (!v.name.trim()) {
+      
+      if (isMultiVariation && !v.name.trim()) {
         toast.error(`請填寫第 ${i + 1} 個規格的名稱！`);
         return;
       }
+
       if (!v.price || Number(v.price) <= 0) {
         toast.error(`請填寫第 ${i + 1} 個規格的有效售價！`);
         return;
@@ -179,7 +193,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       price: Number(variations[0].price),
       stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0),
       variations: variations.map(v => ({
-        name: v.name.trim(),
+        name: v.name.trim() || "單一款式",
         price: Number(v.price),
         stock: parseInt(v.stock)
       })),
@@ -344,12 +358,11 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
-          {/* 🌟 規格與售價區塊 - 已改為預設空白 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between border-b pb-4 mb-4">
                 <div>
-                  <Label className="text-lg font-medium">款式規格與售價 <span className="text-red-500">*</span></Label>
+                  <Label className="text-lg font-medium">售價與數量 <span className="text-red-500">*</span></Label>
                   <p className="text-sm text-muted-foreground mt-1">若有多款商品（如款式 A、款式 B），請點擊新增規格。</p>
                 </div>
                 <Button type="button" variant="outline" onClick={addVariation} className="rounded-full shadow-sm hover:bg-neutral-100">
@@ -358,19 +371,23 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
               </div>
 
               <div className="space-y-4">
-                {variations.map((variation) => (
+                {variations.map((variation, index) => (
                   <div key={variation.id} className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-100 relative">
+                    
                     <div className="w-full sm:flex-1 space-y-2">
-                      <Label className="text-xs text-muted-foreground">款式名稱</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        款式名稱 {variations.length > 1 && <span className="text-red-500">*</span>}
+                      </Label>
                       <Input
-                        placeholder="請輸入款式名稱 (如：A款)"
+                        placeholder={variations.length > 1 ? "請輸入款式名稱 (如：A款)" : "單一商品可留空"}
                         value={variation.name}
                         onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
                         className="bg-white rounded-lg"
                       />
                     </div>
+                    
                     <div className="w-full sm:w-32 space-y-2">
-                      <Label className="text-xs text-muted-foreground">單價 (NT$)</Label>
+                      <Label className="text-xs text-muted-foreground">單價 (NT$) <span className="text-red-500">*</span></Label>
                       <Input
                         type="number"
                         placeholder="0"
@@ -379,8 +396,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                         className="bg-white rounded-lg"
                       />
                     </div>
+                    
                     <div className="w-full sm:w-24 space-y-2">
-                      <Label className="text-xs text-muted-foreground">數量</Label>
+                      <Label className="text-xs text-muted-foreground">數量 <span className="text-red-500">*</span></Label>
                       <Input
                         type="number"
                         min="1"

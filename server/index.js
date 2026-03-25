@@ -416,29 +416,62 @@ app.get('/api/user-stats/:email', async (req, res) => {
     }
 });
 
-// 🌟 13. 首頁或搜尋獲取所有商品
+// 🌟 13. 首頁或搜尋獲取所有商品 (支援分類、搜尋與排序)
 app.get('/api/products', async (req, res) => {
     try {
-        const { search } = req.query;
-        const snapshot = await db.collection('products').orderBy('createdAt', 'desc').get();
+        // 從前端接收 search (搜尋)、category (分類)、sort (排序) 參數
+        const { search, category, sort } = req.query;
+        let query = db.collection('products');
 
-        let products = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            stock: doc.data().stock || 1, // 🌟 舊商品防呆：沒數量預設 1
-            createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : null
-        }));
+        // 1. 執行基礎查詢 (過濾分類)
+        if (category && category !== 'all') {
+            query = query.where('category', '==', category);
+        }
 
+        const snapshot = await query.get();
+        let products = snapshot.docs.map(doc => {
+            const data = doc.data();
+            
+            // 安全處理日期格式
+            let formattedDate = "1970-01-01T00:00:00.000Z";
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                formattedDate = data.createdAt.toDate().toISOString();
+            } else if (data.createdAt) {
+                formattedDate = new Date(data.createdAt).toISOString();
+            }
+
+            return {
+                id: doc.id,
+                ...data,
+                stock: data.stock || 1,
+                createdAt: formattedDate
+            };
+        });
+
+        // 2. 關鍵字搜尋過濾 (不分大小寫)
         if (search) {
             const keyword = search.toLowerCase();
             products = products.filter(p =>
-                p.title?.toLowerCase().includes(keyword) ||
-                p.description?.toLowerCase().includes(keyword)
+                (p.title && p.title.toLowerCase().includes(keyword)) ||
+                (p.description && p.description.toLowerCase().includes(keyword))
             );
+        }
+
+        // 3. 排序邏輯
+        if (sort === 'price-low') {
+            // 價格：低到高
+            products.sort((a, b) => Number(a.price) - Number(b.price));
+        } else if (sort === 'price-high') {
+            // 價格：高到低
+            products.sort((a, b) => Number(b.price) - Number(a.price));
+        } else {
+            // 預設：最新上架 (recent)
+            products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         }
 
         res.status(200).json({ success: true, products });
     } catch (error) {
+        console.error('❌ 獲取商品失敗:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });

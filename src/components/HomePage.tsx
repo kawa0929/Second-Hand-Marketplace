@@ -161,7 +161,8 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
             <Card
               key={category.id}
               className="flex-shrink-0 w-40 cursor-pointer hover:shadow-md transition-all rounded-2xl border-border bg-white"
-              onClick={() => onNavigate('products')}
+              // 🌟 這裡修改了：點擊時把分類的 ID 當作參數傳過去
+              onClick={() => onNavigate('products', undefined, category.id)}
             >
               <CardContent className="p-6 text-center">
                 <div className="font-medium">{category.name}</div>
@@ -230,7 +231,6 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
               })}
             </div>
 
-            {/* 🌟 新增：底部的查看更多按鈕 */}
             <div className="mt-12 text-center">
               <Button
                 variant="outline"

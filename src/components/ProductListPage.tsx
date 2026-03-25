@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 interface ProductListPageProps {
-  onNavigate: (page: string, productId?: string) => void;
+  onNavigate: (page: string, productId?: string, searchQuery?: string) => void;
   initialSearch?: string;
 }
 
@@ -38,12 +38,13 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🌟 新增：管理搜尋、分類與排序的狀態
-  const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  // 🌟 核心修正：判斷 initialSearch 到底是一般搜尋關鍵字，還是分類的 ID
+  const isCategory = Object.keys(categoryMap).includes(initialSearch);
+
+  const [searchQuery, setSearchQuery] = useState(isCategory ? "" : initialSearch);
+  const [categoryFilter, setCategoryFilter] = useState(isCategory ? initialSearch : "all");
   const [sortOrder, setSortOrder] = useState("recent");
 
-  // 🌟 修改：fetchProducts 現在會根據目前的狀態發送請求
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
@@ -79,11 +80,22 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     }
   };
 
-  // 🌟 當分類、排序或初始搜尋字改變時，重新抓取資料
   useEffect(() => {
     fetchProducts();
     fetchUserFavorites();
-  }, [categoryFilter, sortOrder, searchQuery, initialSearch]);
+  }, [categoryFilter, sortOrder, searchQuery]);
+
+  // 🌟 新增：當從其他頁面（如首頁）重新傳入 initialSearch 時，更新狀態
+  useEffect(() => {
+    const isCat = Object.keys(categoryMap).includes(initialSearch);
+    if (isCat) {
+      setCategoryFilter(initialSearch);
+      setSearchQuery("");
+    } else {
+      setSearchQuery(initialSearch);
+      setCategoryFilter("all");
+    }
+  }, [initialSearch]);
 
   const handleLocalSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,7 +161,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* 🌟 1. 新增：返回鍵 */}
         <Button variant="ghost" onClick={() => onNavigate('home')} className="mb-6 rounded-full -ml-2 hover:bg-neutral-200">
           <ChevronLeft className="w-4 h-4 mr-2" /> 返回首頁
         </Button>
@@ -172,7 +183,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             </form>
 
             <div className="flex gap-2">
-              {/* 🌟 2. 分類篩選：串接狀態 */}
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
                   <SelectValue placeholder="分類" />
@@ -185,7 +195,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                 </SelectContent>
               </Select>
 
-              {/* 🌟 3. 排序方式：移除熱門程度並串接狀態 */}
               <Select value={sortOrder} onValueChange={setSortOrder}>
                 <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
                   <SelectValue placeholder="排序方式" />
@@ -196,15 +205,17 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                   <SelectItem value="price-high">價格：高到低</SelectItem>
                 </SelectContent>
               </Select>
-
-              {/* 🌟 4. 已移除原本沒功能的 SlidersHorizontal 按鈕 */}
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-between mb-6">
           <p className="text-muted-foreground font-medium">
-            {searchQuery ? `"${searchQuery}" 的搜尋結果` : "所有商品"}
+            {searchQuery 
+              ? `"${searchQuery}" 的搜尋結果` 
+              : categoryFilter !== "all" 
+                ? `${categoryMap[categoryFilter]} 的商品` 
+                : "所有商品"}
             <span className="ml-2 text-sm bg-neutral-200 px-2 py-1 rounded-full text-neutral-700">共 {products.length} 件</span>
           </p>
         </div>
@@ -215,7 +226,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             <p className="text-muted-foreground">正在載入商品...</p>
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">找不到符合的商品，換個關鍵字試試看吧！</div>
+          <div className="text-center py-20 text-muted-foreground">找不到符合的商品，換個分類或關鍵字試試看吧！</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((product) => {
