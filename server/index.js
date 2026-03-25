@@ -18,6 +18,28 @@ console.log('✅ 成功連線到 Firebase Firestore 資料庫！');
 
 let otpStore = {};
 
+// 🌟 補上：抓取單一使用者資料 (為了讓妳拿最新頭貼)
+app.get('/api/user/:email', async (req, res) => {
+    try {
+        const userDoc = await db.collection('users').doc(req.params.email).get();
+        if (!userDoc.exists) return res.status(404).json({ success: false });
+        res.status(200).json({ success: true, user: userDoc.data() });
+    } catch (error) {
+        res.status(500).json({ success: false });
+    }
+});
+
+// 🌟 補上：抓取單一商品詳情 (詳情頁面需要這支)
+app.get('/api/product/:id', async (req, res) => {
+    try {
+        const doc = await db.collection('products').doc(req.params.id).get();
+        if (!doc.exists) return res.status(404).json({ success: false });
+        res.status(200).json({ success: true, product: { id: doc.id, ...doc.data() } });
+    } catch (error) {
+        res.status(500).json({ success: false });
+    }
+});
+
 // 🌟 2. 寄送驗證碼
 app.post('/api/send-otp', (req, res) => {
     const { email } = req.body;
