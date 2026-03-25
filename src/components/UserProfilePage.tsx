@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle } from "lucide-react";
+import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle, Edit, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -45,17 +45,35 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const user = JSON.parse(storedUser);
+      // 先用舊的撐著，等一下 fetch 完會換成資料庫最新的
       setCurrentUser(user);
 
-      // 1. 撈取我的商品清單
-      fetch(`http://localhost:3001/api/user-products/${user.email}`)
+      // 🌟 核心修正：1. 抓取資料庫內最新的個人檔案 (含頭貼網址)
+      fetch(`http://localhost:3001/api/user/${user.email}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success) setUserListings(data.products);
+          if (data.success) setCurrentUser(data.user);
+        });
+
+      // 🌟 核心修正：2. 修正商品路徑，並轉換格式符合妳原本的 ListingItem 介面
+      fetch(`http://localhost:3001/api/products/seller/${user.email}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const formatted = data.products.map((p: any) => ({
+              id: p.id,
+              title: p.title,
+              price: `NT$${p.price}`, // 轉成字串讓妳下方的 replace 邏輯過
+              image: p.images?.[0] || "",
+              status: p.status || "上架中",
+              views: p.views || 0
+            }));
+            setUserListings(formatted);
+          }
         })
         .catch(err => console.error("抓取商品失敗:", err));
 
-      // 2. 撈取賣場統計數據
+      // 3. 撈取賣場統計數據
       fetch(`http://localhost:3001/api/user-stats/${user.email}`)
         .then(res => res.json())
         .then(data => {
@@ -63,7 +81,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
         })
         .catch(err => console.error("抓取統計失敗:", err));
 
-      // 🌟 3. 撈取我的收藏清單
+      // 4. 撈取我的收藏清單
       fetch(`http://localhost:3001/api/favorites/${user.email}`)
         .then(res => res.json())
         .then(data => {
@@ -189,20 +207,22 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
               <Package className="w-4 h-4 mr-2" /> 我的商品
             </TabsTrigger>
             <TabsTrigger value="favorites" className="rounded-lg">
-              <Heart className="w-4 h-4 mr-2" /> 收藏
+              <Heart className="w-4 h-4 mr-2" /> 收藏清單
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="listings" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3>上架中的商品 ({userListings.length})</h3>
-              <Button className="rounded-full" onClick={() => onNavigate('post')}>新增刊登</Button>
+              <h3 className="text-lg font-bold">上架中的商品 ({userListings.length})</h3>
+              <Button className="rounded-full" onClick={() => onNavigate('post-item')}>
+                <Plus className="w-4 h-4 mr-2" /> 新增刊登
+              </Button>
             </div>
             {userListings.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-border">
                 <Package className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
                 <p className="text-muted-foreground">目前還沒有刊登任何商品喔！</p>
-                <Button variant="link" onClick={() => onNavigate('post')} className="mt-2 text-primary">立刻去刊登一個吧</Button>
+                <Button variant="link" onClick={() => onNavigate('post-item')} className="mt-2 text-primary">立刻去刊登一個吧</Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -249,9 +269,8 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
             )}
           </TabsContent>
 
-          {/* 🌟 收藏分頁：現在會真實顯示收藏的商品 */}
           <TabsContent value="favorites" className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="text-lg font-bold">
               <h3>已收藏的商品 ({favorites.length})</h3>
             </div>
 

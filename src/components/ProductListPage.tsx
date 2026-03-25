@@ -1,4 +1,4 @@
-import { Search, Filter, Heart, SlidersHorizontal, AlertCircle } from "lucide-react";
+import { Search, Heart, ChevronLeft, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -25,7 +25,6 @@ const categoryMap: Record<string, string> = {
   other: "其他",
 };
 
-// 🌟 新增：商品狀況與顏色對應表
 const conditionConfig: Record<string, { label: string; color: string }> = {
   "new": { label: "全新", color: "bg-emerald-100 text-emerald-700" },
   "like-new": { label: "近全新", color: "bg-blue-100 text-blue-700" },
@@ -38,15 +37,20 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   const [products, setProducts] = useState<any[]>([]);
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [appliedSearch, setAppliedSearch] = useState(initialSearch);
 
-  const fetchProducts = async (keyword: string) => {
+  // 🌟 新增：管理搜尋、分類與排序的狀態
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("recent");
+
+  // 🌟 修改：fetchProducts 現在會根據目前的狀態發送請求
+  const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const url = keyword
-        ? `http://localhost:3001/api/products?search=${encodeURIComponent(keyword)}`
-        : `http://localhost:3001/api/products`;
+      let url = `http://localhost:3001/api/products?`;
+      if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
+      if (categoryFilter !== "all") url += `category=${categoryFilter}&`;
+      url += `sort=${sortOrder}`;
 
       const res = await fetch(url);
       const data = await res.json();
@@ -64,7 +68,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     const userStr = localStorage.getItem('user');
     if (!userStr) return;
     const user = JSON.parse(userStr);
-
     try {
       const res = await fetch(`http://localhost:3001/api/favorites/${user.email}`);
       const data = await res.json();
@@ -76,17 +79,15 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     }
   };
 
+  // 🌟 當分類、排序或初始搜尋字改變時，重新抓取資料
   useEffect(() => {
-    setSearchQuery(initialSearch);
-    setAppliedSearch(initialSearch);
-    fetchProducts(initialSearch);
+    fetchProducts();
     fetchUserFavorites();
-  }, [initialSearch]);
+  }, [categoryFilter, sortOrder, searchQuery, initialSearch]);
 
   const handleLocalSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setAppliedSearch(searchQuery.trim());
-    fetchProducts(searchQuery.trim());
+    fetchProducts();
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent, product: any) => {
@@ -99,12 +100,12 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     const user = JSON.parse(userStr);
 
     if (product.status === '已下架') {
-      toast.error("此商品已下架，無法加入收藏喔！", { style: { background: '#4b5563', color: '#fff', border: 'none' } });
+      toast.error("此商品已下架，無法加入收藏喔！");
       return;
     }
 
     if (user.email === product.sellerEmail) {
-      toast.error("這是您自己刊登的商品，不需要收藏啦！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
+      toast.error("這是您自己刊登的商品，不需要收藏啦！");
       return;
     }
 
@@ -125,7 +126,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
         }
       }
     } catch (e) {
-      toast.error("收藏操作失敗，請檢查連線");
+      toast.error("收藏操作失敗");
     }
   };
 
@@ -135,12 +136,9 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
 
     if (product.status === "已下架") {
       if (currentUser && currentUser.email === product.sellerEmail) {
-        toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
         onNavigate('edit-product', product.id);
       } else {
-        toast.error("此商品目前已下架，無法查看詳情喔！", {
-          style: { background: '#4b5563', color: '#fff', border: 'none' }
-        });
+        toast.error("此商品目前已下架");
       }
     } else {
       onNavigate('product-detail', product.id);
@@ -150,19 +148,23 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* 🌟 1. 新增：返回鍵 */}
+        <Button variant="ghost" onClick={() => onNavigate('home')} className="mb-6 rounded-full -ml-2 hover:bg-neutral-200">
+          <ChevronLeft className="w-4 h-4 mr-2" /> 返回首頁
+        </Button>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold">瀏覽商品</h1>
-          <p className="text-muted-foreground mt-2">
-            探索數千件優質二手商品
-          </p>
+          <p className="text-muted-foreground mt-2">探索數千件優質二手商品</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 mb-6 border border-border">
+        <div className="bg-white rounded-2xl p-4 mb-6 border border-border shadow-sm">
           <div className="flex flex-col md:flex-row gap-4">
             <form onSubmit={handleLocalSearch} className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
-                placeholder="搜尋商品..."
+                placeholder="搜尋商品關鍵字..."
                 className="w-full pl-10 h-11 rounded-xl bg-neutral-50 border-0 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -170,7 +172,8 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             </form>
 
             <div className="flex gap-2">
-              <Select defaultValue="all">
+              {/* 🌟 2. 分類篩選：串接狀態 */}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
                   <SelectValue placeholder="分類" />
                 </SelectTrigger>
@@ -182,7 +185,8 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                 </SelectContent>
               </Select>
 
-              <Select defaultValue="recent">
+              {/* 🌟 3. 排序方式：移除熱門程度並串接狀態 */}
+              <Select value={sortOrder} onValueChange={setSortOrder}>
                 <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
                   <SelectValue placeholder="排序方式" />
                 </SelectTrigger>
@@ -190,32 +194,31 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                   <SelectItem value="recent">最新上架</SelectItem>
                   <SelectItem value="price-low">價格：低到高</SelectItem>
                   <SelectItem value="price-high">價格：高到低</SelectItem>
-                  <SelectItem value="popular">最熱門</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl">
-                <SlidersHorizontal className="w-5 h-5" />
-              </Button>
+              {/* 🌟 4. 已移除原本沒功能的 SlidersHorizontal 按鈕 */}
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-between mb-6">
           <p className="text-muted-foreground font-medium">
-            {appliedSearch ? `"${appliedSearch}" 的搜尋結果` : "所有商品"}
+            {searchQuery ? `"${searchQuery}" 的搜尋結果` : "所有商品"}
             <span className="ml-2 text-sm bg-neutral-200 px-2 py-1 rounded-full text-neutral-700">共 {products.length} 件</span>
           </p>
         </div>
 
         {isLoading ? (
-          <div className="text-center py-20 text-muted-foreground">搜尋中...</div>
+          <div className="text-center py-32 flex flex-col items-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary/40 mb-4" />
+            <p className="text-muted-foreground">正在載入商品...</p>
+          </div>
         ) : products.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">找不到符合的商品，換個關鍵字試試看吧！</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((product) => {
-              // 🌟 獲取該商品的狀況與顏色
               const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
 
               return (
@@ -261,7 +264,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                       NT${Number(product.price).toLocaleString()}
                     </div>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      {/* 🌟 修改為彩色徽章 */}
                       <Badge className={`rounded-full text-[10px] font-medium border-none shadow-none hover:opacity-80 ${conditionData.color}`}>
                         {conditionData.label}
                       </Badge>
@@ -276,7 +278,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
           </div>
         )}
 
-        {!isLoading && products.length >= 8 && (
+        {!isLoading && products.length >= 20 && (
           <div className="text-center mt-12">
             <Button variant="outline" size="lg" className="rounded-full">
               載入更多商品

@@ -201,83 +201,82 @@ app.post('/api/post-item', async (req, res) => {
     }
 });
 
-// 🌟 9. 撈取特定使用者的所有商品
-app.get('/api/user-products/:email', async (req, res) => {
+// 🌟 9. 獲取所有商品 (支援搜尋、分類、排序)
+app.get('/api/products', async (req, res) => {
     try {
-        const userEmail = req.params.email;
-        const snapshot = await db.collection('products').where('sellerEmail', '==', userEmail).get();
+        const { search, category, sort } = req.query;
+        let query = db.collection('products');
 
-        let products = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            products.push({
-                id: doc.id,
-                title: data.title,
-                price: `NT$${data.price.toLocaleString()}`,
-                image: data.images && data.images.length > 0 ? data.images[0] : "",
-                status: data.status,
-                stock: data.stock || 1, // 🌟 舊商品防呆：沒數量預設 1
-                views: data.views || 0,
-                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : "1970-01-01T00:00:00.000Z"
+        // 1. 執行基礎查詢 (過濾分類)
+        if (category && category !== 'all') {
+            query = query.where('category', '==', category);
+        }
+
+        const snapshot = await query.get();
+        let products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // 2. 關鍵字搜尋過濾 (在後端執行，不分大小寫)
+        if (search) {
+            const keyword = search.toLowerCase();
+            products = products.filter(p =>
+                (p.title && p.title.toLowerCase().includes(keyword)) ||
+                (p.description && p.description.toLowerCase().includes(keyword))
+            );
+        }
+
+        // 3. 排序邏輯
+        if (sort === 'price-low') {
+            // 價格：低到高
+            products.sort((a, b) => Number(a.price) - Number(b.price));
+        } else if (sort === 'price-high') {
+            // 價格：高到低
+            products.sort((a, b) => Number(b.price) - Number(a.price));
+        } else {
+            // 預設：最新上架 (recent)
+            products.sort((a, b) => {
+                const dateA = a.createdAt?.seconds || 0;
+                const dateB = b.createdAt?.seconds || 0;
+                return dateB - dateA;
             });
-        });
+        }
 
-        products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         res.status(200).json({ success: true, products });
-
     } catch (error) {
-        console.error('❌ 撈取商品錯誤:', error);
+        console.error('❌ 獲取商品失敗:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-
-// 🌟 10. 獲取單一商品資訊
-app.get('/api/product/:id', async (req, res) => {
+// 🌟 10. 獲取特定賣家的商品
+app.get('/api/products/seller/:email', async (req, res) => {
     try {
-        const doc = await db.collection('products').doc(req.params.id).get();
-        if (!doc.exists) {
-            return res.status(404).json({ success: false, message: '找不到商品' });
-        }
+        const { email } = req.params;
+        const snapshot = await db.collection('products')
+            .where('sellerEmail', '==', email)
+            .get();
 
-        const productData = doc.data();
-        let formattedDate = productData.createdAt ? productData.createdAt.toDate().toISOString() : null;
-
-        let sellerInfo = {
-            fullname: productData.sellerEmail ? productData.sellerEmail.split('@')[0] : "未知賣家",
-            avatarUrl: "",
-            totalProducts: 0,
-            ratingRate: 100,
-            reviewCount: 0
-        };
-
-        if (productData.sellerEmail) {
-            const userSnapshot = await db.collection('users').where('email', '==', productData.sellerEmail).get();
-            if (!userSnapshot.empty) {
-                const userData = userSnapshot.docs[0].data();
-                sellerInfo.fullname = userData.fullname || sellerInfo.fullname;
-                sellerInfo.avatarUrl = userData.avatarUrl || "";
-            }
-
-            const productsSnapshot = await db.collection('products').where('sellerEmail', '==', productData.sellerEmail).get();
-            sellerInfo.totalProducts = productsSnapshot.size;
-        }
-
-        res.status(200).json({
-            success: true,
-            product: {
+        const products = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
                 id: doc.id,
-                ...productData,
-                stock: productData.stock || 1, // 🌟 舊商品防呆：沒數量預設 1
-                createdAt: formattedDate,
-                sellerInfo
-            }
+                ...data,
+                // 確保就算沒有 status 欄位，也會預設為上架中
+                status: data.status || '上架中'
+            };
         });
+
+        // 照時間排序：最新的在前
+        products.sort((a, b) => {
+            const dateA = a.createdAt?.seconds || 0;
+            const dateB = b.createdAt?.seconds || 0;
+            return dateB - dateA;
+        });
+
+        res.status(200).json({ success: true, products });
     } catch (error) {
-        console.error('❌ 獲取商品錯誤:', error);
+        console.error('❌ 獲取賣家商品失敗:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
-
 // 🌟 11. 更新商品資訊 (編輯後存檔用，支援多規格)
 app.put('/api/product/:id', async (req, res) => {
     try {

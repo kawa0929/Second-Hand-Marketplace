@@ -1,4 +1,4 @@
-import { Search, TrendingUp, Heart, AlertCircle } from "lucide-react";
+import { Search, TrendingUp, Heart, AlertCircle, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -26,7 +26,6 @@ const categories = [
   { id: "other", name: "其他" },
 ];
 
-// 🌟 新增：商品狀況與顏色對應表
 const conditionConfig: Record<string, { label: string; color: string }> = {
   "new": { label: "全新", color: "bg-emerald-100 text-emerald-700" },
   "like-new": { label: "近全新", color: "bg-blue-100 text-blue-700" },
@@ -46,7 +45,10 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     fetch('http://localhost:3001/api/products')
       .then(res => res.json())
       .then(data => {
-        if (data.success) setLatestProducts(data.products);
+        if (data.success) {
+          // 首頁只顯示最新 8 件，其他的點擊「查看更多」去看
+          setLatestProducts(data.products.slice(0, 8));
+        }
       })
       .catch(err => console.error("獲取商品失敗:", err))
       .finally(() => setIsLoading(false));
@@ -74,12 +76,12 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     const user = JSON.parse(userStr);
 
     if (product.status === '已下架') {
-      toast.error("此商品已下架，無法加入收藏喔！", { style: { background: '#4b5563', color: '#fff', border: 'none' } });
+      toast.error("此商品已下架，無法加入收藏喔！");
       return;
     }
 
     if (user.email === product.sellerEmail) {
-      toast.error("這是您自己刊登的商品，不需要收藏啦！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
+      toast.error("這是您自己刊登的商品，不需要收藏啦！");
       return;
     }
 
@@ -111,23 +113,15 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     }
   };
 
-  const handleLoginConfirm = () => {
-    setShowLoginPrompt(false);
-    onNavigate('login');
-  };
-
   const handleProductClick = (product: any) => {
     const userStr = localStorage.getItem('user');
     const currentUser = userStr ? JSON.parse(userStr) : null;
 
     if (product.status === "已下架") {
       if (currentUser && currentUser.email === product.sellerEmail) {
-        toast.info("此商品目前為下架狀態，已為您導向編輯頁面。");
         onNavigate('edit-product', product.id);
       } else {
-        toast.error("此商品目前已下架，無法查看詳情喔！", {
-          style: { background: '#4b5563', color: '#fff', border: 'none' }
-        });
+        toast.error("此商品目前已下架");
       }
     } else {
       onNavigate('product-detail', product.id);
@@ -135,8 +129,8 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <section className="border-b border-border">
+    <div className="min-h-screen flex flex-col bg-neutral-50/50">
+      <section className="bg-white border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center max-w-3xl mx-auto">
             <h1 className="text-4xl font-bold tracking-tight">輕鬆買賣二手好物</h1>
@@ -147,7 +141,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   placeholder="搜尋商品關鍵字..."
-                  className="pl-12 h-12 rounded-full border-0 shadow-md bg-white text-base"
+                  className="pl-12 h-12 rounded-full border-0 shadow-sm bg-neutral-100 text-base focus:bg-white transition-all"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -178,9 +172,11 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-1">
-        <div className="flex items-center gap-2 mb-6">
-          <TrendingUp className="w-5 h-5 text-primary" />
-          <h2 className="text-xl font-bold">最新上架</h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold">最新上架</h2>
+          </div>
         </div>
 
         {isLoading ? (
@@ -188,77 +184,81 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
         ) : latestProducts.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">目前還沒有人刊登商品喔</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {latestProducts.map((product) => {
-              // 🌟 獲取該商品的狀況與顏色
-              const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {latestProducts.map((product) => {
+                const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
 
-              return (
-                <Card
-                  key={product.id}
-                  className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
-                  onClick={() => handleProductClick(product)}
-                >
-                  <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                    <ImageWithFallback
-                      src={product.images?.[0] || ""}
-                      alt={product.title}
-                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
-                    />
+                return (
+                  <Card
+                    key={product.id}
+                    className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
+                    onClick={() => handleProductClick(product)}
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                      <ImageWithFallback
+                        src={product.images?.[0] || ""}
+                        alt={product.title}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
+                      />
 
-                    <div className="absolute top-3 left-3">
-                      {product.status === '已下架' && (
-                        <Badge variant="outline" className="bg-neutral-200/90 text-neutral-600 border-none rounded-full">已下架</Badge>
-                      )}
+                      <button
+                        className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
+                          ? 'bg-red-50 text-red-500'
+                          : 'bg-white/80 hover:bg-white text-neutral-600'
+                          }`}
+                        onClick={(e) => handleToggleFavorite(e, product)}
+                      >
+                        <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
+                      </button>
                     </div>
-
-                    {product.status === '已下架' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-                        <AlertCircle className="w-10 h-10 text-white/70" />
+                    <CardContent className="p-4">
+                      <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
+                        {product.title}
                       </div>
-                    )}
+                      <div className="mb-3 font-bold text-lg text-primary">
+                        NT${Number(product.price).toLocaleString()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`rounded-full text-[10px] font-medium border-none shadow-none hover:opacity-80 ${conditionData.color}`}>
+                          {conditionData.label}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
 
-                    <button
-                      className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
-                        ? 'bg-red-50 text-red-500'
-                        : 'bg-white/80 hover:bg-white text-neutral-600'
-                        }`}
-                      onClick={(e) => handleToggleFavorite(e, product)}
-                    >
-                      <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
-                    </button>
-                  </div>
-                  <CardContent className="p-4">
-                    <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
-                      {product.title}
-                    </div>
-                    <div className={`mb-3 font-bold text-lg ${product.status === 'resale' || product.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
-                      NT${Number(product.price).toLocaleString()}
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      {/* 🌟 修改為彩色徽章 */}
-                      <Badge className={`rounded-full text-[10px] font-medium border-none shadow-none hover:opacity-80 ${conditionData.color}`}>
-                        {conditionData.label}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+            {/* 🌟 新增：底部的查看更多按鈕 */}
+            <div className="mt-12 text-center">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => onNavigate('products')}
+                className="rounded-full px-10 h-14 text-lg font-medium border-neutral-200 hover:bg-white hover:border-primary hover:text-primary transition-all shadow-sm"
+              >
+                查看更多商品
+                <ChevronRight className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
+          </>
         )}
       </section>
 
-      <footer className="border-t border-border mt-auto">
+      <footer className="border-t border-border bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-sm text-muted-foreground">© 二手好物管理平台</p>
+          <p className="text-sm text-muted-foreground text-center">© 二手好物市集管理平台</p>
         </div>
       </footer>
 
       <LoginPromptDialog
         open={showLoginPrompt}
         onOpenChange={setShowLoginPrompt}
-        onConfirm={handleLoginConfirm}
+        onConfirm={() => {
+          setShowLoginPrompt(false);
+          onNavigate('login');
+        }}
         description="登入後即可收藏您心儀的商品！"
       />
     </div>
