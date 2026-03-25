@@ -21,7 +21,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [category, setCategory] = useState("");
   const [condition, setCondition] = useState("");
   const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("1"); // 🌟 新增：庫存數量，預設為 1
+  const [stock, setStock] = useState("1");
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,7 +34,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
       setPrice(aiGeneratedData.price || "");
-      setStock("1"); // AI 生成的通常預設為 1
+      setStock("1");
       toast.success("✨ 商品資訊已自動填入！");
     }
   }, [aiGeneratedData]);
@@ -80,16 +80,59 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setImages(images.filter((_, i) => i !== index));
   };
 
+  // 🌟 強化版防呆驗證
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. 照片驗證
     if (images.length === 0) {
-      toast.error("請至少上傳一張照片");
+      toast.error("請至少上傳一張商品照片！");
       return;
     }
 
-    // 防呆：確保數量大於等於 1
-    if (parseInt(stock) < 1 || isNaN(parseInt(stock))) {
-      toast.error("數量請至少輸入 1");
+    // 2. 名稱驗證
+    if (!title.trim()) {
+      toast.error("請填寫商品名稱！");
+      return;
+    }
+    if (title.trim().length > 60) {
+      toast.error("商品名稱不可超過 60 個字！");
+      return;
+    }
+
+    // 3. 描述驗證
+    if (!description.trim()) {
+      toast.error("請填寫商品描述！");
+      return;
+    }
+    if (description.trim().length < 5) {
+      toast.error("商品描述太短囉，請至少輸入 5 個字！");
+      return;
+    }
+    if (description.trim().length > 3000) {
+      toast.error("商品描述不可超過 3000 個字！");
+      return;
+    }
+
+    // 4. 下拉選單驗證
+    if (!category) {
+      toast.error("請選擇商品分類！");
+      return;
+    }
+    if (!condition) {
+      toast.error("請選擇商品狀況！");
+      return;
+    }
+
+    // 5. 售價驗證
+    if (!price || Number(price) <= 0) {
+      toast.error("請輸入有效的商品售價！");
+      return;
+    }
+
+    // 6. 數量驗證
+    if (!stock || parseInt(stock) < 1 || isNaN(parseInt(stock))) {
+      toast.error("商品數量至少需要 1 件！");
       return;
     }
 
@@ -100,8 +143,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       description,
       category,
       condition,
-      price: Number(price), // 確保傳遞數字給後端
-      stock: parseInt(stock), // 🌟 新增：傳遞數量給後端
+      price: Number(price),
+      stock: parseInt(stock),
       location: "",
       images,
       sellerEmail: user.email
@@ -135,11 +178,12 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
           <p className="text-muted-foreground mt-2">填寫以下資訊以建立您的商品刊登</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* 🌟 移除 form 標籤預設的驗證行為，交由 handleSubmit 處理 */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <Label className="text-lg font-medium">商品照片</Label>
+                <Label className="text-lg font-medium">商品照片 <span className="text-red-500">*</span></Label>
                 <Button
                   type="button"
                   onClick={() => onNavigate('ai-camera')}
@@ -193,19 +237,39 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">商品名稱 *</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：復古實木椅" className="rounded-xl h-11 bg-white border-border" required />
+                <div className="flex justify-between items-end">
+                  <Label htmlFor="title">商品名稱 <span className="text-red-500">*</span></Label>
+                  <span className={`text-xs ${title.length > 60 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{title.length}/60</span>
+                </div>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  maxLength={60}
+                  placeholder="例如：復古實木椅"
+                  className="rounded-xl h-11 bg-white border-border"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">商品描述 *</Label>
-                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="描述一下商品的使用狀況、尺寸等..." className="rounded-xl min-h-32 bg-white border-border resize-none" required />
+                <div className="flex justify-between items-end">
+                  <Label htmlFor="description">商品描述 <span className="text-red-500">*</span></Label>
+                  <span className={`text-xs ${description.length > 3000 || (description.length > 0 && description.length < 5) ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{description.length}/3000</span>
+                </div>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={3000}
+                  placeholder="最少輸入 5 個字，描述一下商品的使用狀況、尺寸等..."
+                  className="rounded-xl min-h-32 bg-white border-border resize-none"
+                />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>分類 *</Label>
-                  <Select value={category} onValueChange={setCategory} required>
+                  <Label>分類 <span className="text-red-500">*</span></Label>
+                  <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger className="rounded-xl h-11 bg-white border-border">
                       <SelectValue placeholder="選擇分類" />
                     </SelectTrigger>
@@ -225,8 +289,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                 </div>
 
                 <div className="space-y-2">
-                  <Label>商品狀況 *</Label>
-                  <Select value={condition} onValueChange={setCondition} required>
+                  <Label>商品狀況 <span className="text-red-500">*</span></Label>
+                  <Select value={condition} onValueChange={setCondition}>
                     <SelectTrigger className="rounded-xl h-11 bg-white border-border">
                       <SelectValue placeholder="選擇狀況" />
                     </SelectTrigger>
@@ -244,19 +308,17 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6">
-              {/* 🌟 數量與售價並排 */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">售價 *</Label>
+                  <Label htmlFor="price">售價 <span className="text-red-500">*</span></Label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">NT$</span>
-                    <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" required />
+                    <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="rounded-xl h-11 bg-white border-border pl-14" />
                   </div>
                 </div>
 
-                {/* 🌟 新增：商品數量欄位 */}
                 <div className="space-y-2">
-                  <Label htmlFor="stock">商品數量 *</Label>
+                  <Label htmlFor="stock">商品數量 <span className="text-red-500">*</span></Label>
                   <Input
                     id="stock"
                     type="number"
@@ -265,7 +327,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                     onChange={(e) => setStock(e.target.value)}
                     placeholder="輸入數量 (預設為 1)"
                     className="rounded-xl h-11 bg-white border-border"
-                    required
                   />
                 </div>
               </div>
