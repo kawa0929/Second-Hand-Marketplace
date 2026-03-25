@@ -69,7 +69,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
     // 🌟 把你申請到的兩把 Key 都放在這個陣列裡
     const IMGBB_API_KEYS = [
-      "f428676453b3be7a71b6eb5ffe777c91", // 👈 新申請的 Key！
+      "f428676453b3be7a71b6eb5ffe777c91", 
       "56b4b5dbdd71601bcf28d83010505b19" // 這把你原本舊的就當作備用
     ];
 
