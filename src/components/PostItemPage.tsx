@@ -30,9 +30,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [condition, setCondition] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // 🌟 取代單一 price 和 stock，改用陣列管理
+  // 🌟 修改：預設名稱為空字串 ""，不再自動填入 "單一款式"
   const [variations, setVariations] = useState<Variation[]>([
-    { id: Date.now().toString(), name: "單一款式", price: "", stock: "1" }
+    { id: Date.now().toString(), name: "", price: "", stock: "1" }
   ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,9 +45,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
 
-      // AI 生成如果有價格，套用到第一個規格
+      // AI 生成時，款式名稱一樣保持空白
       if (aiGeneratedData.price) {
-        setVariations([{ id: Date.now().toString(), name: "單一款式", price: aiGeneratedData.price.toString(), stock: "1" }]);
+        setVariations([{ id: Date.now().toString(), name: "", price: aiGeneratedData.price.toString(), stock: "1" }]);
       }
       toast.success("✨ 商品資訊已自動填入！");
     }
@@ -100,6 +100,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       toast.error("最多只能新增 10 種規格喔！");
       return;
     }
+    // 新增時名稱同樣預設為空
     setVariations([...variations, { id: Date.now().toString(), name: "", price: "", stock: "1" }]);
   };
 
@@ -118,7 +119,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 基本驗證
     if (images.length === 0) {
       toast.error("請至少上傳一張商品照片！");
       return;
@@ -152,7 +152,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       return;
     }
 
-    // 🌟 規格驗證
+    // 🌟 規格詳細驗證
     for (let i = 0; i < variations.length; i++) {
       const v = variations[i];
       if (!v.name.trim()) {
@@ -171,16 +171,13 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-    // 🌟 整理要傳給後端的資料格式
     const postData = {
       title,
       description,
       category,
       condition,
-      // 為了相容列表頁展示，以第一個規格的價格為代表價，並計算總庫存
       price: Number(variations[0].price),
       stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0),
-      // 新增 variations 陣列傳給後端
       variations: variations.map(v => ({
         name: v.name.trim(),
         price: Number(v.price),
@@ -220,7 +217,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
-          {/* 照片區塊 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -237,7 +233,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
               </div>
 
               <p className="text-sm text-muted-foreground mb-4">
-                最多可上傳 3 張照片，或使用 AI 智慧上傳自動填入資訊。第一張將作為封面圖。
+                最多可上傳 3 張照片。第一張將作為封面圖。
               </p>
 
               <div className="grid grid-cols-3 gap-4">
@@ -275,7 +271,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
-          {/* 基本資訊區塊 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
@@ -288,7 +283,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   maxLength={60}
-                  placeholder="請輸入商品名稱" // 🌟 已移除例如的文字
+                  placeholder="請輸入商品名稱"
                   className="rounded-xl h-11 bg-white border-border"
                 />
               </div>
@@ -339,6 +334,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                     <SelectContent>
                       <SelectItem value="new">全新</SelectItem>
                       <SelectItem value="like-new">近全新</SelectItem>
+                      <SelectItem value="excellent">極佳</SelectItem>
                       <SelectItem value="good">良好</SelectItem>
                       <SelectItem value="fair">尚可</SelectItem>
                     </SelectContent>
@@ -348,13 +344,13 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
-          {/* 🌟 規格與售價動態區塊 */}
+          {/* 🌟 規格與售價區塊 - 已改為預設空白 */}
           <Card className="rounded-2xl border-border">
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between border-b pb-4 mb-4">
                 <div>
                   <Label className="text-lg font-medium">款式規格與售價 <span className="text-red-500">*</span></Label>
-                  <p className="text-sm text-muted-foreground mt-1">若有多款商品（如小卡 A 款、B 款），請點擊新增規格。</p>
+                  <p className="text-sm text-muted-foreground mt-1">若有多款商品（如款式 A、款式 B），請點擊新增規格。</p>
                 </div>
                 <Button type="button" variant="outline" onClick={addVariation} className="rounded-full shadow-sm hover:bg-neutral-100">
                   <Plus className="w-4 h-4 mr-1" /> 新增規格
@@ -362,15 +358,15 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
               </div>
 
               <div className="space-y-4">
-                {variations.map((variation, index) => (
+                {variations.map((variation) => (
                   <div key={variation.id} className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-100 relative">
                     <div className="w-full sm:flex-1 space-y-2">
                       <Label className="text-xs text-muted-foreground">款式名稱</Label>
                       <Input
-                        placeholder="例如：左上角A款"
+                        placeholder="請輸入款式名稱 (如：A款)"
                         value={variation.name}
                         onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
-                        className="bg-white"
+                        className="bg-white rounded-lg"
                       />
                     </div>
                     <div className="w-full sm:w-32 space-y-2">
@@ -380,7 +376,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                         placeholder="0"
                         value={variation.price}
                         onChange={(e) => updateVariation(variation.id, 'price', e.target.value)}
-                        className="bg-white"
+                        className="bg-white rounded-lg"
                       />
                     </div>
                     <div className="w-full sm:w-24 space-y-2">
@@ -390,11 +386,10 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                         min="1"
                         value={variation.stock}
                         onChange={(e) => updateVariation(variation.id, 'stock', e.target.value)}
-                        className="bg-white"
+                        className="bg-white rounded-lg"
                       />
                     </div>
 
-                    {/* 如果超過 1 個規格，顯示刪除按鈕 */}
                     {variations.length > 1 && (
                       <Button
                         type="button"

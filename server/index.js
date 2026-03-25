@@ -516,7 +516,6 @@ app.get('/api/cart/:email', async (req, res) => {
                 const p = productDoc.data();
                 const variationName = cartData.variationName || "單一款式";
 
-                // 🌟 從商品的 variations 陣列中，找出買家選的那個款式，取得正確的價格與庫存
                 let itemPrice = p.price;
                 let itemStock = p.stock || 1;
 
@@ -528,14 +527,11 @@ app.get('/api/cart/:email', async (req, res) => {
                     }
                 }
 
-                // 🌟 把款式名稱加到標題後面，讓買家一目了然 (例如: 羽球拍 (紅色款))
-                const displayTitle = variationName !== "單一款式" ? `${p.title} (${variationName})` : p.title;
-
                 cartItems.push({
                     cartId: doc.id,
                     productId: productDoc.id,
-                    variationName: variationName, // 🌟 傳給前端
-                    title: displayTitle,
+                    variationName: variationName,
+                    title: p.title, // 🌟 改回純淨的原始標題，不再加括號
                     price: itemPrice,
                     image: p.images?.[0] || "",
                     quantity: cartData.quantity,

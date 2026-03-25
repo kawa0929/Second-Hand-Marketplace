@@ -20,7 +20,7 @@ interface CartItem {
     image: string;
     seller: string;
     stock: number;
-    status: string; // 🌟 接收後端傳來的狀態
+    status: string;
 }
 
 export function CartPage({ onNavigate }: CartPageProps) {
@@ -53,7 +53,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
     }, []);
 
     const handleUpdateQuantity = async (item: CartItem, change: number) => {
-        if (item.status === '已下架') return; // 🛑 防呆：下架商品不允許操作數量
+        if (item.status === '已下架') return;
 
         if (change > 0 && item.quantity >= item.stock) {
             toast.error(`庫存不足！此商品最多只能購買 ${item.stock} 件`);
@@ -68,7 +68,12 @@ export function CartPage({ onNavigate }: CartPageProps) {
             const res = await fetch('http://localhost:3001/api/cart/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: user.email, productId: item.productId, quantity: change, variationName: item.variationName })
+                body: JSON.stringify({
+                    email: user.email,
+                    productId: item.productId,
+                    quantity: change,
+                    variationName: item.variationName
+                })
             });
             const data = await res.json();
             if (data.success) fetchCartItems();
@@ -92,10 +97,9 @@ export function CartPage({ onNavigate }: CartPageProps) {
         }
     };
 
-    // 🌟 結帳邏輯判斷
-    const validItems = cartItems.filter(item => item.status !== '已下架'); // 只計算上架中的商品
-    const hasDelistedItems = cartItems.some(item => item.status === '已下架'); // 檢查是否有違規商品
-    const total = validItems.reduce((sum, item) => sum + item.price * item.quantity, 0); // 金額只算有效商品
+    const validItems = cartItems.filter(item => item.status !== '已下架');
+    const hasDelistedItems = cartItems.some(item => item.status === '已下架');
+    const total = validItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     return (
         <div className="min-h-screen bg-neutral-50">
@@ -126,7 +130,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
                     <div className="grid lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-4">
                             {cartItems.map((item) => {
-                                const isDelisted = item.status === '已下架'; // 🌟 判斷是否下架
+                                const isDelisted = item.status === '已下架';
 
                                 return (
                                     <Card key={item.cartId} className={`rounded-2xl border-border overflow-hidden ${isDelisted ? 'bg-neutral-100 opacity-80' : 'bg-white'}`}>
@@ -134,7 +138,6 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-neutral-200 flex-shrink-0 border border-border cursor-pointer relative" onClick={() => !isDelisted && onNavigate('product-detail', item.productId)}>
                                                 <ImageWithFallback src={item.image} alt={item.title} className={`w-full h-full object-cover ${isDelisted ? 'grayscale' : ''}`} />
 
-                                                {/* 下架商品圖片遮罩 */}
                                                 {isDelisted && (
                                                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                                                         <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-full">已下架</span>
@@ -148,7 +151,11 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                                         <h3 className={`font-bold text-lg ${isDelisted ? 'text-neutral-500' : 'cursor-pointer hover:text-primary transition-colors'}`} onClick={() => !isDelisted && onNavigate('product-detail', item.productId)}>
                                                             {item.title}
                                                         </h3>
-                                                        <p className="text-sm text-muted-foreground">賣家：{item.seller}</p>
+
+                                                        {/* 🌟 只有在有填寫規格（且不是單一款式）時才顯示規格 */}
+                                                        {item.variationName && item.variationName !== "單一款式" && (
+                                                            <p className="text-sm text-muted-foreground mt-1">規格：{item.variationName}</p>
+                                                        )}
                                                     </div>
                                                     <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-red-500 rounded-full" onClick={() => removeItem(item.cartId)}>
                                                         <Trash2 className="w-5 h-5" />
@@ -179,7 +186,6 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                                     </div>
                                                 </div>
 
-                                                {/* 下架警告文字 */}
                                                 {isDelisted ? (
                                                     <p className="text-xs text-red-500 text-right mt-2 flex items-center justify-end gap-1">
                                                         <AlertCircle className="w-3 h-3" /> 此商品已失效，無法結帳
@@ -205,7 +211,6 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                             <span className="text-2xl font-bold text-primary">NT${total.toLocaleString()}</span>
                                         </div>
 
-                                        {/* 如果有下架商品，這裡給個小提示 */}
                                         {hasDelistedItems && (
                                             <p className="text-xs text-red-500 bg-red-50 p-2 rounded-lg mt-2">
                                                 您的購物車內含有已下架的失效商品，請將其移除後再進行結帳。

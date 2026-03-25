@@ -50,7 +50,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     setStatus(p.status || "上架中");
                     setImages(p.images || []);
 
-                    // 🌟 載入規格：如果有 variations 就載入，沒有的話就拿舊版的 price 和 stock 當作單一規格（向下相容）
+                    // 🌟 載入規格：如果有 variations 就載入，沒有的話就拿舊版的價格和庫存
                     if (p.variations && p.variations.length > 0) {
                         setVariations(p.variations.map((v: any, index: number) => ({
                             id: Date.now().toString() + index,
@@ -59,9 +59,10 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                             stock: v.stock.toString()
                         })));
                     } else {
+                        // 🌟 修改：如果是舊商品或單一款式，名稱改為預設空白
                         setVariations([{
                             id: Date.now().toString(),
-                            name: "單一款式",
+                            name: "",
                             price: p.price ? p.price.toString() : "",
                             stock: p.stock ? p.stock.toString() : "1"
                         }]);
@@ -123,6 +124,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
             toast.error("最多只能新增 10 種規格喔！");
             return;
         }
+        // 新增時名稱同樣預設為空
         setVariations([...variations, { id: Date.now().toString(), name: "", price: "", stock: "1" }]);
     };
 
@@ -147,7 +149,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         if (!category) return toast.error("請選擇商品分類！");
         if (!condition) return toast.error("請選擇商品狀況！");
 
-        // 🌟 規格驗證
+        // 規格驗證
         for (let i = 0; i < variations.length; i++) {
             const v = variations[i];
             if (!v.name.trim()) return toast.error(`請填寫第 ${i + 1} 個規格的名稱！`);
@@ -155,15 +157,14 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
             if (!v.stock || parseInt(v.stock) < 1 || isNaN(parseInt(v.stock))) return toast.error(`請填寫第 ${i + 1} 個規格的數量 (至少 1)！`);
         }
 
-        // 🌟 整理要傳給後端的資料格式
         const updateData = {
             title,
             description,
             category,
             condition,
             images,
-            price: Number(variations[0].price), // 以第一個規格為代表價
-            stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0), // 總庫存
+            price: Number(variations[0].price),
+            stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0),
             variations: variations.map(v => ({
                 name: v.name.trim(),
                 price: Number(v.price),
@@ -255,7 +256,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                         <button
                                             type="button"
                                             onClick={() => removeImage(index)}
-                                            disabled={status === "已下架"}
+                                            disabled={status === "極佳"}
                                             className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white shadow-sm transition-colors disabled:opacity-50"
                                         >
                                             <X className="w-4 h-4" />
@@ -281,12 +282,18 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     <Card className="rounded-2xl border-border">
                         <CardContent className="p-6 space-y-4">
                             <div className="space-y-2">
-                                <Label>商品名稱 *</Label>
-                                <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
+                                <div className="flex justify-between items-end">
+                                    <Label>商品名稱 *</Label>
+                                    <span className={`text-xs ${title.length > 60 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{title.length}/60</span>
+                                </div>
+                                <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="請輸入商品名稱" className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
                             </div>
                             <div className="space-y-2">
-                                <Label>商品描述 *</Label>
-                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={3000} className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
+                                <div className="flex justify-between items-end">
+                                    <Label>商品描述 *</Label>
+                                    <span className={`text-xs ${description.length > 3000 || (description.length > 0 && description.length < 5) ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{description.length}/3000</span>
+                                </div>
+                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={3000} placeholder="最少輸入 5 個字..." className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
@@ -297,13 +304,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="electronics">電子產品</SelectItem>
-                                            <SelectItem value="furniture">家具</SelectItem>
                                             <SelectItem value="fashion">服飾配件</SelectItem>
-                                            <SelectItem value="sports">運動用品</SelectItem>
-                                            <SelectItem value="books">書籍</SelectItem>
-                                            <SelectItem value="toys">玩具</SelectItem>
-                                            <SelectItem value="plants">居家園藝</SelectItem>
-                                            <SelectItem value="kitchen">廚房用品</SelectItem>
                                             <SelectItem value="idol">偶像周邊</SelectItem>
                                             <SelectItem value="other">其他</SelectItem>
                                         </SelectContent>
@@ -328,12 +329,12 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                         </CardContent>
                     </Card>
 
-                    {/* 🌟 動態規格區塊 */}
+                    {/* 🌟 規格區塊 - 預設空白且支援 placeholder */}
                     <Card className="rounded-2xl border-border">
                         <CardContent className="p-6 space-y-4">
                             <div className="flex items-center justify-between border-b pb-4 mb-4">
                                 <div>
-                                    <Label className="text-lg font-medium">款式規格與售價 <span className="text-red-500">*</span></Label>
+                                    <Label className="text-lg font-medium">款式規格與售價 *</Label>
                                     <p className="text-sm text-muted-foreground mt-1">您可以隨時新增或修改商品的規格款式。</p>
                                 </div>
                                 <Button
@@ -353,6 +354,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                         <div className="w-full sm:flex-1 space-y-2">
                                             <Label className="text-xs text-muted-foreground">款式名稱</Label>
                                             <Input
+                                                placeholder="請輸入款式名稱 (如：A款)"
                                                 value={variation.name}
                                                 onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
                                                 className="bg-white"
@@ -363,6 +365,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                             <Label className="text-xs text-muted-foreground">單價 (NT$)</Label>
                                             <Input
                                                 type="number"
+                                                placeholder="0"
                                                 value={variation.price}
                                                 onChange={(e) => updateVariation(variation.id, 'price', e.target.value)}
                                                 className="bg-white"

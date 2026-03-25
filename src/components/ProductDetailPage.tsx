@@ -26,12 +26,13 @@ const categoryMap: Record<string, string> = {
   other: "其他",
 };
 
-const conditionMap: Record<string, string> = {
-  new: "全新",
-  "like-new": "近全新",
-  excellent: "極佳",
-  good: "良好",
-  fair: "尚可",
+// 🌟 定義商品狀況與顏色對應表 (與首頁一致)
+const conditionConfig: Record<string, { label: string; color: string }> = {
+  "new": { label: "全新", color: "bg-emerald-100 text-emerald-700" },
+  "like-new": { label: "近全新", color: "bg-blue-100 text-blue-700" },
+  "excellent": { label: "極佳", color: "bg-indigo-100 text-indigo-700" },
+  "good": { label: "良好", color: "bg-amber-100 text-amber-700" },
+  "fair": { label: "尚可", color: "bg-stone-200 text-stone-700" },
 };
 
 const formatPostDate = (dateString?: string) => {
@@ -59,8 +60,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const [isLoading, setIsLoading] = useState(true);
   const [mainImageIndex, setMainImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
-
-  // 🌟 新增：用來記錄買家目前選中的款式
   const [selectedVariation, setSelectedVariation] = useState<any>(null);
 
   useEffect(() => {
@@ -70,7 +69,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
         const data = await res.json();
         if (data.success) {
           setProduct(data.product);
-          // 🌟 如果該商品只有 1 個款式，直接幫買家預設選好，省去點擊的麻煩
           if (data.product.variations && data.product.variations.length === 1) {
             setSelectedVariation(data.product.variations[0]);
           }
@@ -170,14 +168,32 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
 
-    // 🌟 防呆：如果有規格可以選，但買家還沒選，擋下來！
     const hasMultipleVariations = product.variations && product.variations.length > 1;
     if (hasMultipleVariations && !selectedVariation) {
       toast.error("請先選擇您想要的款式規格喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
       return;
     }
 
+    const variationName = selectedVariation ? selectedVariation.name : "單一款式";
+    const currentStock = selectedVariation ? selectedVariation.stock : (product.stock || 1);
+
     try {
+      const checkRes = await fetch(`http://localhost:3001/api/cart/${currentUser.email}`);
+      const checkData = await checkRes.json();
+
+      if (checkData.success) {
+        const existingItem = checkData.cart.find((item: any) =>
+          item.productId === productId && item.variationName === variationName
+        );
+
+        if (existingItem && existingItem.quantity >= currentStock) {
+          toast.error(`此商品已在購物車中，且已達庫存上限 (${currentStock} 件)！`, {
+            style: { background: '#f59e0b', color: '#fff', border: 'none' }
+          });
+          return;
+        }
+      }
+
       const res = await fetch('http://localhost:3001/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,8 +201,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
           email: currentUser.email,
           productId: productId,
           quantity: 1,
-          // 🌟 把選中的款式名稱傳給後端 (如果沒有就傳 "單一款式")
-          variationName: selectedVariation ? selectedVariation.name : "單一款式"
+          variationName: variationName
         })
       });
       const data = await res.json();
@@ -209,7 +224,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
 
-    // 🌟 結帳一樣要防呆
     const hasMultipleVariations = product.variations && product.variations.length > 1;
     if (hasMultipleVariations && !selectedVariation) {
       toast.error("請先選擇您想要的款式規格喔！", { style: { background: '#ef4444', color: '#fff', border: 'none' } });
@@ -222,13 +236,15 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
   if (!product) return null;
 
-  // 🌟 動態顯示價格與庫存 (如果買家有選款式，就顯示款式的；沒選就顯示預設的)
   const displayPrice = selectedVariation ? selectedVariation.price : product.price;
   const formattedPrice = `NT$${Number(displayPrice).toLocaleString()}`;
   const displayStock = selectedVariation ? selectedVariation.stock : (product.stock || 1);
 
   const displayCategory = categoryMap[product.category] || "其他";
-  const displayCondition = conditionMap[product.condition] || "未知";
+
+  // 🌟 獲取彩色的狀況標籤數據
+  const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
+
   const images = product.images && product.images.length > 0 ? product.images : ["https://via.placeholder.com/800"];
 
   const sellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
@@ -276,8 +292,13 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="secondary" className="rounded-full">{displayCategory}</Badge>
-                    <Badge variant="outline" className="rounded-full">{displayCondition}</Badge>
-                    <Badge variant={product.status === '已下架' ? 'outline' : 'default'} className={`rounded-full ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : 'bg-green-600 hover:bg-green-700'}`}>
+
+                    {/* 🌟 這裡換成了彩色的狀況標籤 */}
+                    <Badge className={`rounded-full border-none shadow-none font-medium hover:opacity-80 transition-opacity ${conditionData.color}`}>
+                      {conditionData.label}
+                    </Badge>
+
+                    <Badge variant={product.status === '已下架' ? 'outline' : 'default'} className={`rounded-full ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-600 border-none' : 'bg-green-600 hover:bg-green-700'}`}>
                       {product.status || '上架中'}
                     </Badge>
                   </div>
@@ -301,7 +322,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
 
               <div className="mb-6 text-3xl font-bold text-primary">{formattedPrice}</div>
 
-              {/* 🌟 款式規格選擇 UI */}
               {product.variations && product.variations.length > 1 && (
                 <div className="mb-6">
                   <h3 className="text-sm font-bold text-muted-foreground mb-3">選擇款式</h3>
@@ -368,14 +388,13 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">狀況</span>
-                  <span className="font-medium">{displayCondition}</span>
+                  <span className="font-medium">{conditionData.label}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">分類</span>
                   <span className="font-medium">{displayCategory}</span>
                 </div>
                 <div className="flex justify-between">
-                  {/* 🌟 庫存動態顯示 */}
                   <span className="text-muted-foreground">商品數量</span>
                   <span className="font-medium">{displayStock}</span>
                 </div>
