@@ -58,7 +58,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mainImageIndex, setMainImageIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false); // 🌟 收藏狀態
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -78,7 +78,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       }
     };
 
-    // 🌟 檢查該使用者是否已收藏此商品
     const checkFavoriteStatus = async () => {
       const userStr = localStorage.getItem('user');
       if (!userStr) return;
@@ -107,11 +106,23 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     }
   };
 
-  // 🌟 收藏切換功能
+  // 🌟 修改後的收藏切換功能 (加入防呆)
   const handleFavoriteToggle = async () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
       toast.error("請先登入才能收藏商品喔！");
+      return;
+    }
+
+    // 🛑 防呆 1：下架商品不可收藏
+    if (product.status === '已下架') {
+      toast.error("此商品已下架，無法加入收藏喔！", { style: { background: '#4b5563', color: '#fff', border: 'none' } });
+      return;
+    }
+
+    // 🛑 防呆 2：自己的商品不可收藏
+    if (currentUser.email === product.sellerEmail) {
+      toast.error("這是您自己刊登的商品，不需要收藏啦！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
       return;
     }
 
@@ -144,7 +155,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     onNavigate('chat');
   };
 
-  // 🌟 修改後的加入購物車 (資料庫同步版)
   const handleAddToCart = async () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -248,7 +258,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                     <Share2 className="w-4 h-4" />
                   </Button>
 
-                  {/* 🌟 修改後的收藏按鈕 */}
+                  {/* 收藏按鈕 */}
                   <Button
                     variant="outline"
                     size="icon"
@@ -298,13 +308,10 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <span className="text-muted-foreground">分類</span>
                   <span className="font-medium">{displayCategory}</span>
                 </div>
-
-                {/* 🌟 數量文字修正為黑色 (拿掉 text-primary) */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">商品數量</span>
                   <span className="font-medium">{product.stock || 1}</span>
                 </div>
-
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">刊登日期</span>
                   <span className="font-medium">{formatPostDate(product.createdAt)}</span>

@@ -1,4 +1,4 @@
-import { ChevronLeft, Trash2, Plus, Minus, ShoppingBag, Loader2 } from "lucide-react";
+import { ChevronLeft, Trash2, Plus, Minus, ShoppingBag, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Separator } from "./ui/separator";
@@ -9,9 +9,9 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 interface CartPageProps {
     onNavigate: (page: string, productId?: string) => void;
 }
-// 配合後端回傳的格式
+
 interface CartItem {
-    cartId: string;    // 資料庫裡的文件 ID (email_productId)
+    cartId: string;
     productId: string;
     title: string;
     price: number;
@@ -19,13 +19,13 @@ interface CartItem {
     image: string;
     seller: string;
     stock: number;
+    status: string; // 🌟 接收後端傳來的狀態
 }
 
 export function CartPage({ onNavigate }: CartPageProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // 🌟 1. 從資料庫讀取該使用者的雲端購物車
     const fetchCartItems = async () => {
         const userStr = localStorage.getItem('user');
         if (!userStr) {
@@ -51,34 +51,31 @@ export function CartPage({ onNavigate }: CartPageProps) {
         fetchCartItems();
     }, []);
 
-    // 🌟 2. 更改數量 (直接與後端同步)
-    const handleUpdateQuantity = async (productId: string, change: number) => {
+    const handleUpdateQuantity = async (item: CartItem, change: number) => {
+        if (item.status === '已下架') return; // 🛑 防呆：下架商品不允許操作數量
+
+        if (change > 0 && item.quantity >= item.stock) {
+            toast.error(`庫存不足！此商品最多只能購買 ${item.stock} 件`);
+            return;
+        }
+
         const userStr = localStorage.getItem('user');
         if (!userStr) return;
         const user = JSON.parse(userStr);
 
         try {
-            // 呼叫 add API，傳入 change (1 或 -1)
             const res = await fetch('http://localhost:3001/api/cart/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: user.email,
-                    productId: productId,
-                    quantity: change
-                })
+                body: JSON.stringify({ email: user.email, productId: item.productId, quantity: change })
             });
             const data = await res.json();
-            if (data.success) {
-                // 成功後重新抓取最新資料，確保前端與資料庫一致
-                fetchCartItems();
-            }
+            if (data.success) fetchCartItems();
         } catch (error) {
             toast.error("更新數量失敗");
         }
     };
 
-    // 🌟 3. 移除商品 (從資料庫刪除)
     const removeItem = async (cartId: string) => {
         try {
             const res = await fetch(`http://localhost:3001/api/cart/${cartId}`, {
@@ -94,10 +91,10 @@ export function CartPage({ onNavigate }: CartPageProps) {
         }
     };
 
-    // 計算金額
-    const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const shippingFee = cartItems.length > 0 ? 60 : 0;
-    const total = subtotal + shippingFee;
+    // 🌟 結帳邏輯判斷
+    const validItems = cartItems.filter(item => item.status !== '已下架'); // 只計算上架中的商品
+    const hasDelistedItems = cartItems.some(item => item.status === '已下架'); // 檢查是否有違規商品
+    const total = validItems.reduce((sum, item) => sum + item.price * item.quantity, 0); // 金額只算有效商品
 
     return (
         <div className="min-h-screen bg-neutral-50">
@@ -127,52 +124,73 @@ export function CartPage({ onNavigate }: CartPageProps) {
                 ) : (
                     <div className="grid lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-4">
-                            {cartItems.map((item) => (
-                                <Card key={item.cartId} className="rounded-2xl border-border bg-white overflow-hidden">
-                                    <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-neutral-100 flex-shrink-0 border border-border cursor-pointer" onClick={() => onNavigate('product-detail', item.productId)}>
-                                            <ImageWithFallback src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                                        </div>
+                            {cartItems.map((item) => {
+                                const isDelisted = item.status === '已下架'; // 🌟 判斷是否下架
 
-                                        <div className="flex-1 w-full">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <div>
-                                                    <h3 className="font-bold text-lg cursor-pointer hover:text-primary transition-colors" onClick={() => onNavigate('product-detail', item.productId)}>
-                                                        {item.title}
-                                                    </h3>
-                                                    <p className="text-sm text-muted-foreground">賣家：{item.seller}</p>
-                                                </div>
-                                                <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-red-500 rounded-full" onClick={() => removeItem(item.cartId)}>
-                                                    <Trash2 className="w-5 h-5" />
-                                                </Button>
+                                return (
+                                    <Card key={item.cartId} className={`rounded-2xl border-border overflow-hidden ${isDelisted ? 'bg-neutral-100 opacity-80' : 'bg-white'}`}>
+                                        <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                                            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-neutral-200 flex-shrink-0 border border-border cursor-pointer relative" onClick={() => !isDelisted && onNavigate('product-detail', item.productId)}>
+                                                <ImageWithFallback src={item.image} alt={item.title} className={`w-full h-full object-cover ${isDelisted ? 'grayscale' : ''}`} />
+
+                                                {/* 下架商品圖片遮罩 */}
+                                                {isDelisted && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                                        <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-full">已下架</span>
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            <div className="flex items-center justify-between mt-4">
-                                                <div className="text-lg font-bold text-primary">
-                                                    NT${item.price.toLocaleString()}
+                                            <div className="flex-1 w-full">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <div>
+                                                        <h3 className={`font-bold text-lg ${isDelisted ? 'text-neutral-500' : 'cursor-pointer hover:text-primary transition-colors'}`} onClick={() => !isDelisted && onNavigate('product-detail', item.productId)}>
+                                                            {item.title}
+                                                        </h3>
+                                                        <p className="text-sm text-muted-foreground">賣家：{item.seller}</p>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-red-500 rounded-full" onClick={() => removeItem(item.cartId)}>
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </Button>
                                                 </div>
 
-                                                <div className="flex items-center border border-border rounded-full p-1 bg-neutral-50">
-                                                    <button
-                                                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all disabled:opacity-50"
-                                                        onClick={() => handleUpdateQuantity(item.productId, -1)}
-                                                        disabled={item.quantity <= 1}
-                                                    >
-                                                        <Minus className="w-4 h-4" />
-                                                    </button>
-                                                    <span className="w-10 text-center font-medium">{item.quantity}</span>
-                                                    <button
-                                                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all"
-                                                        onClick={() => handleUpdateQuantity(item.productId, 1)}
-                                                    >
-                                                        <Plus className="w-4 h-4" />
-                                                    </button>
+                                                <div className="flex items-center justify-between mt-4">
+                                                    <div className={`text-lg font-bold ${isDelisted ? 'text-neutral-400 line-through' : 'text-primary'}`}>
+                                                        NT${item.price.toLocaleString()}
+                                                    </div>
+
+                                                    <div className={`flex items-center border border-border rounded-full p-1 ${isDelisted ? 'bg-neutral-200' : 'bg-neutral-50'}`}>
+                                                        <button
+                                                            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            onClick={() => handleUpdateQuantity(item, -1)}
+                                                            disabled={item.quantity <= 1 || isDelisted}
+                                                        >
+                                                            <Minus className="w-4 h-4" />
+                                                        </button>
+                                                        <span className={`w-10 text-center font-medium ${isDelisted ? 'text-neutral-400' : ''}`}>{item.quantity}</span>
+                                                        <button
+                                                            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            onClick={() => handleUpdateQuantity(item, 1)}
+                                                            disabled={item.quantity >= item.stock || isDelisted}
+                                                        >
+                                                            <Plus className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
+
+                                                {/* 下架警告文字 */}
+                                                {isDelisted ? (
+                                                    <p className="text-xs text-red-500 text-right mt-2 flex items-center justify-end gap-1">
+                                                        <AlertCircle className="w-3 h-3" /> 此商品已失效，無法結帳
+                                                    </p>
+                                                ) : item.quantity >= item.stock && (
+                                                    <p className="text-xs text-red-500 text-right mt-2">已達庫存上限 ({item.stock} 件)</p>
+                                                )}
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </div>
 
                         <div className="lg:col-span-1">
@@ -181,29 +199,28 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                     <h2 className="text-xl font-bold mb-6">訂單摘要</h2>
 
                                     <div className="space-y-4 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">商品總計 ({cartItems.length} 件)</span>
-                                            <span className="font-medium">NT${subtotal.toLocaleString()}</span>
+                                        <div className="flex justify-between items-end">
+                                            <span className="text-muted-foreground">商品總計 ({validItems.length} 件)</span>
+                                            <span className="text-2xl font-bold text-primary">NT${total.toLocaleString()}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">運費</span>
-                                            <span className="font-medium">NT${shippingFee.toLocaleString()}</span>
-                                        </div>
+
+                                        {/* 如果有下架商品，這裡給個小提示 */}
+                                        {hasDelistedItems && (
+                                            <p className="text-xs text-red-500 bg-red-50 p-2 rounded-lg mt-2">
+                                                您的購物車內含有已下架的失效商品，請將其移除後再進行結帳。
+                                            </p>
+                                        )}
                                     </div>
 
                                     <Separator className="my-6" />
 
-                                    <div className="flex justify-between items-end mb-8">
-                                        <span className="font-bold text-lg">總付款金額</span>
-                                        <span className="text-3xl font-bold text-primary">NT${total.toLocaleString()}</span>
-                                    </div>
-
                                     <Button
                                         size="lg"
-                                        className="w-full rounded-full text-lg h-14"
+                                        className={`w-full rounded-full text-lg h-14 ${hasDelistedItems ? 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 cursor-not-allowed' : ''}`}
+                                        disabled={hasDelistedItems || validItems.length === 0}
                                         onClick={() => toast.info("🚀 即將推出結帳功能")}
                                     >
-                                        前往結帳
+                                        {hasDelistedItems ? "請先移除下架商品" : "前往結帳"}
                                     </Button>
                                 </CardContent>
                             </Card>

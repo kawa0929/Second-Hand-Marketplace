@@ -29,12 +29,11 @@ const categories = [
 export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [latestProducts, setLatestProducts] = useState<any[]>([]);
-  const [userFavorites, setUserFavorites] = useState<string[]>([]); // 🌟 儲存已收藏的 ID
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    // 1. 抓取最新商品
     fetch('http://localhost:3001/api/products')
       .then(res => res.json())
       .then(data => {
@@ -43,7 +42,6 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       .catch(err => console.error("獲取商品失敗:", err))
       .finally(() => setIsLoading(false));
 
-    // 2. 🌟 如果有登入，抓取該用戶的收藏清單 ID
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
@@ -57,9 +55,9 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     }
   }, []);
 
-  // 🌟 切換收藏函式
-  const handleToggleFavorite = async (e: React.MouseEvent, productId: string) => {
-    e.stopPropagation(); // 阻止觸發卡片的點擊事件
+  // 🌟 修改後的切換收藏函式 (傳入完整 product 物件，加入防呆)
+  const handleToggleFavorite = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
     const userStr = localStorage.getItem('user');
     if (!userStr) {
       setShowLoginPrompt(true);
@@ -67,19 +65,31 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     }
     const user = JSON.parse(userStr);
 
+    // 🛑 防呆 1：下架商品不可收藏
+    if (product.status === '已下架') {
+      toast.error("此商品已下架，無法加入收藏喔！", { style: { background: '#4b5563', color: '#fff', border: 'none' } });
+      return;
+    }
+
+    // 🛑 防呆 2：自己的商品不可收藏
+    if (user.email === product.sellerEmail) {
+      toast.error("這是您自己刊登的商品，不需要收藏啦！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
+      return;
+    }
+
     try {
       const res = await fetch('http://localhost:3001/api/favorites/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, productId })
+        body: JSON.stringify({ email: user.email, productId: product.id })
       });
       const data = await res.json();
       if (data.success) {
         if (data.isFavorite) {
-          setUserFavorites(prev => [...prev, productId]);
+          setUserFavorites(prev => [...prev, product.id]);
           toast.success("已加入收藏 ❤️");
         } else {
-          setUserFavorites(prev => prev.filter(id => id !== productId));
+          setUserFavorites(prev => prev.filter(id => id !== product.id));
           toast.success("已取消收藏");
         }
       }
@@ -202,13 +212,13 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                     </div>
                   )}
 
-                  {/* 🌟 修改後的愛心按鈕：根據 userFavorites 同步變色 */}
+                  {/* 🌟 修改後的愛心按鈕：傳入完整 product 物件 */}
                   <button
                     className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
-                        ? 'bg-red-50 text-red-500'
-                        : 'bg-white/80 hover:bg-white text-neutral-600'
+                      ? 'bg-red-50 text-red-500'
+                      : 'bg-white/80 hover:bg-white text-neutral-600'
                       }`}
-                    onClick={(e) => handleToggleFavorite(e, product.id)}
+                    onClick={(e) => handleToggleFavorite(e, product)}
                   >
                     <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
                   </button>

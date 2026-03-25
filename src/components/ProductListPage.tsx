@@ -35,12 +35,11 @@ const conditionMap: Record<string, string> = {
 
 export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListPageProps) {
   const [products, setProducts] = useState<any[]>([]);
-  const [userFavorites, setUserFavorites] = useState<string[]>([]); // 🌟 儲存已收藏商品 ID
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [appliedSearch, setAppliedSearch] = useState(initialSearch);
 
-  // 抓取商品列表
   const fetchProducts = async (keyword: string) => {
     setIsLoading(true);
     try {
@@ -60,7 +59,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     }
   };
 
-  // 🌟 抓取使用者收藏 ID 列表
   const fetchUserFavorites = async () => {
     const userStr = localStorage.getItem('user');
     if (!userStr) return;
@@ -81,7 +79,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     setSearchQuery(initialSearch);
     setAppliedSearch(initialSearch);
     fetchProducts(initialSearch);
-    fetchUserFavorites(); // 🌟 載入時同步收藏狀態
+    fetchUserFavorites();
   }, [initialSearch]);
 
   const handleLocalSearch = (e: React.FormEvent) => {
@@ -90,9 +88,9 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     fetchProducts(searchQuery.trim());
   };
 
-  // 🌟 切換收藏函式
-  const handleToggleFavorite = async (e: React.MouseEvent, productId: string) => {
-    e.stopPropagation(); // 防止點擊愛心時觸發 handleProductClick
+  // 🌟 修改後的切換收藏函式 (傳入完整 product 物件，加入防呆)
+  const handleToggleFavorite = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
     const userStr = localStorage.getItem('user');
     if (!userStr) {
       toast.error("請先登入才能收藏喔！");
@@ -100,19 +98,31 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     }
     const user = JSON.parse(userStr);
 
+    // 🛑 防呆 1：下架商品不可收藏
+    if (product.status === '已下架') {
+      toast.error("此商品已下架，無法加入收藏喔！", { style: { background: '#4b5563', color: '#fff', border: 'none' } });
+      return;
+    }
+
+    // 🛑 防呆 2：自己的商品不可收藏
+    if (user.email === product.sellerEmail) {
+      toast.error("這是您自己刊登的商品，不需要收藏啦！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
+      return;
+    }
+
     try {
       const res = await fetch('http://localhost:3001/api/favorites/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, productId })
+        body: JSON.stringify({ email: user.email, productId: product.id })
       });
       const data = await res.json();
       if (data.success) {
         if (data.isFavorite) {
-          setUserFavorites(prev => [...prev, productId]);
+          setUserFavorites(prev => [...prev, product.id]);
           toast.success("已收藏 ❤️");
         } else {
-          setUserFavorites(prev => prev.filter(id => id !== productId));
+          setUserFavorites(prev => prev.filter(id => id !== product.id));
           toast.success("已取消收藏");
         }
       }
@@ -223,13 +233,13 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
                   />
 
-                  {/* 🌟 修改後的愛心按鈕：同步變色 */}
+                  {/* 🌟 收藏按鈕傳入 product 物件 */}
                   <button
                     className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
-                        ? 'bg-red-50 text-red-500'
-                        : 'bg-white/80 hover:bg-white text-neutral-600'
+                      ? 'bg-red-50 text-red-500'
+                      : 'bg-white/80 hover:bg-white text-neutral-600'
                       }`}
-                    onClick={(e) => handleToggleFavorite(e, product.id)}
+                    onClick={(e) => handleToggleFavorite(e, product)}
                   >
                     <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
                   </button>

@@ -517,7 +517,8 @@ app.get('/api/cart/:email', async (req, res) => {
                     price: p.price,
                     image: p.images?.[0] || "",
                     quantity: cartData.quantity,
-                    stock: p.stock || 1
+                    stock: p.stock || 1,
+                    status: p.status || '上架中'
                 });
             }
         }
