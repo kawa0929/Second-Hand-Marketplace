@@ -29,6 +29,14 @@ interface FavoriteItem {
   image: string;
 }
 
+// 🌟 新增：安全的日期格式化函數 (徹底消滅 NaN)
+const formatDate = (dateString?: string) => {
+  if (!dateString) return "2026 年 3 月"; // 預設近期時間
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "2026 年 3 月"; // 防呆機制：如果時間壞掉，給個預設值
+  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
+};
+
 export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userListings, setUserListings] = useState<ListingItem[]>([]);
@@ -149,11 +157,8 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                     <div className="flex flex-row flex-wrap items-center gap-5 text-sm text-muted-foreground mt-2">
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <Calendar className="w-4 h-4" />
-                        <span>
-                          {currentUser.createdAt
-                            ? `加入於 ${new Date(currentUser.createdAt).getFullYear()} 年 ${new Date(currentUser.createdAt).getMonth() + 1} 月`
-                            : "加入於 2026 年 3 月"}
-                        </span>
+                        {/* 🌟 修改：套用我們寫好的 formatDate 函數 */}
+                        <span>加入於 {formatDate(currentUser.createdAt)}</span>
                       </div>
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <MapPin className="w-4 h-4" />

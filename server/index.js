@@ -369,7 +369,7 @@ app.put('/api/product/:id', async (req, res) => {
     }
 });
 
-// 🌟 12. 獲取使用者賣場統計資訊
+// 🌟 12. 獲取使用者賣場統計資訊 (新增 address 與 bio，並加上日期防呆)
 app.get('/api/user-stats/:email', async (req, res) => {
     try {
         const email = req.params.email;
@@ -379,14 +379,24 @@ app.get('/api/user-stats/:email', async (req, res) => {
         let userInfo = {
             fullname: email.split('@')[0],
             avatarUrl: "",
-            createdAt: null
+            createdAt: null,
+            address: "", // 新增所在地
+            bio: ""      // 新增自我介紹
         };
 
         if (userDoc.exists) {
             const data = userDoc.data();
             userInfo.fullname = data.fullname || userInfo.fullname;
             userInfo.avatarUrl = data.avatarUrl || "";
-            userInfo.createdAt = data.createdAt ? data.createdAt.toDate().toISOString() : null;
+            userInfo.address = data.address || "";
+            userInfo.bio = data.bio || "";
+
+            // 安全處理日期
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                userInfo.createdAt = data.createdAt.toDate().toISOString();
+            } else if (data.createdAt) {
+                userInfo.createdAt = new Date(data.createdAt).toISOString();
+            }
         }
 
         const productsSnapshot = await db.collection('products').where('sellerEmail', '==', email).get();
