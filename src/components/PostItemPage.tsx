@@ -50,7 +50,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
   }, [aiGeneratedData]);
 
-  // 🌟 修改：加入超時自動切換備用機制的上傳邏輯
+  // 🌟 修改：加入雙 API Key 輪替機制，並移除本機假網址預覽
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -66,41 +66,58 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
 
     setIsUploading(true);
-    const IMGBB_API_KEY = "56b4b5dbdd71601bcf28d83010505b19";
 
-    try {
-      const formData = new FormData();
-      formData.append("image", file);
+    // 🌟 把你申請到的兩把 Key 都放在這個陣列裡
+    const IMGBB_API_KEYS = [
+      "f428676453b3be7a71b6eb5ffe777c91", // 👈 記得把這裡換成你新申請的 Key！
+      "56b4b5dbdd71601bcf28d83010505b19" // 這把你原本舊的就當作備用
+    ];
 
-      // 設定 8 秒超時，如果 ImgBB 卡住就不等了
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+    let uploadSuccess = false;
+    let uploadedUrl = "";
 
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: "POST",
-        body: formData,
-        signal: controller.signal
-      });
+    // 🌟 開始輪替測試：如果第一把失敗，就自動試第二把
+    for (const apiKey of IMGBB_API_KEYS) {
+      if (!apiKey || apiKey.includes("請填入")) continue; // 防呆，跳過沒填的預設文字
 
-      clearTimeout(timeoutId);
-      const result = await response.json();
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
 
-      if (result.success) {
-        setImages((prev) => [...prev, result.data.url]);
-        toast.success("照片上傳成功！📸");
-      } else {
-        throw new Error("ImgBB API 回傳失敗");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超時
+
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        const result = await response.json();
+
+        if (result.success) {
+          uploadedUrl = result.data.url;
+          uploadSuccess = true;
+          break; // 🎯 成功了！跳出迴圈，不用再試下一把 Key
+        }
+      } catch (error) {
+        console.warn(`Key ${apiKey} 上傳失敗，嘗試下一把...`, error);
+        // 失敗了就什麼都不做，讓迴圈繼續跑，去試下一把 Key
       }
-    } catch (error) {
-      console.warn("上傳到 ImgBB 失敗，啟動備用機制:", error);
-      // 🌟 備用方案：如果 ImgBB 壞掉，我們直接產生一個「本機端」的預覽網址
-      const localPreviewUrl = URL.createObjectURL(file);
-      setImages((prev) => [...prev, localPreviewUrl]);
-      toast.info("已啟用本機圖片預覽模式！");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+
+    // 🌟 判斷最終結果
+    if (uploadSuccess) {
+      setImages((prev) => [...prev, uploadedUrl]);
+      toast.success("照片上傳成功！📸");
+    } else {
+      // 兩把 Key 都失敗，直接報錯，不再存入 blob 假網址
+      toast.error("圖片上傳失敗，請確認 API Key 額度或稍後再試！");
+    }
+
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeImage = (index: number) => {
