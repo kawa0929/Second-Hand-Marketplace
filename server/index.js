@@ -29,14 +29,59 @@ app.get('/api/user/:email', async (req, res) => {
     }
 });
 
-// 🌟 補上：抓取單一商品詳情 (詳情頁面需要這支)
 app.get('/api/product/:id', async (req, res) => {
     try {
         const doc = await db.collection('products').doc(req.params.id).get();
-        if (!doc.exists) return res.status(404).json({ success: false });
-        res.status(200).json({ success: true, product: { id: doc.id, ...doc.data() } });
+        if (!doc.exists) {
+            return res.status(404).json({ success: false, message: '找不到商品' });
+        }
+
+        const productData = doc.data();
+
+        // 🌟 1. 處理時間格式，轉換為前端看得懂的字串 (解決 NaN/NaN/NaN)
+        let formattedDate = null;
+        if (productData.createdAt && typeof productData.createdAt.toDate === 'function') {
+            formattedDate = productData.createdAt.toDate().toISOString();
+        } else if (productData.createdAt) {
+            formattedDate = new Date(productData.createdAt).toISOString();
+        }
+
+        // 🌟 2. 抓取賣家詳細資訊 (解決賣家資料顯示 0 與沒頭貼的問題)
+        let sellerInfo = {
+            fullname: productData.sellerEmail ? productData.sellerEmail.split('@')[0] : "未知賣家",
+            avatarUrl: "",
+            totalProducts: 0,
+            ratingRate: 100,
+            reviewCount: 0
+        };
+
+        if (productData.sellerEmail) {
+            // 去 users 資料表抓賣家的名字跟頭貼
+            const userDoc = await db.collection('users').doc(productData.sellerEmail).get();
+            if (userDoc.exists) {
+                const userData = userDoc.data();
+                sellerInfo.fullname = userData.fullname || sellerInfo.fullname;
+                sellerInfo.avatarUrl = userData.avatarUrl || "";
+            }
+
+            // 去 products 資料表算這個賣家總共有幾件商品
+            const productsSnapshot = await db.collection('products').where('sellerEmail', '==', productData.sellerEmail).get();
+            sellerInfo.totalProducts = productsSnapshot.size;
+        }
+
+        res.status(200).json({
+            success: true,
+            product: {
+                id: doc.id,
+                ...productData,
+                stock: productData.stock || 1,
+                createdAt: formattedDate, // 替換為處理過的時間
+                sellerInfo // 附加上剛剛抓到的賣家資訊
+            }
+        });
     } catch (error) {
-        res.status(500).json({ success: false });
+        console.error('❌ 獲取商品錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
 
@@ -223,48 +268,46 @@ app.post('/api/post-item', async (req, res) => {
     }
 });
 
-// 🌟 9. 獲取所有商品 (支援搜尋、分類、排序)
-app.get('/api/products', async (req, res) => {
+// 🌟 9. 撈取特定使用者的所有商品 (修復日期與價格報錯問題)
+app.get('/api/user-products/:email', async (req, res) => {
     try {
-        const { search, category, sort } = req.query;
-        let query = db.collection('products');
+        const userEmail = req.params.email;
+        const snapshot = await db.collection('products').where('sellerEmail', '==', userEmail).get();
 
-        // 1. 執行基礎查詢 (過濾分類)
-        if (category && category !== 'all') {
-            query = query.where('category', '==', category);
-        }
+        let products = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
 
-        const snapshot = await query.get();
-        let products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 🌟 1. 安全處理時間格式 (跟剛剛商品詳情頁一樣的防呆處理)
+            let formattedDate = "1970-01-01T00:00:00.000Z";
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                formattedDate = data.createdAt.toDate().toISOString();
+            } else if (data.createdAt) {
+                formattedDate = new Date(data.createdAt).toISOString();
+            }
 
-        // 2. 關鍵字搜尋過濾 (在後端執行，不分大小寫)
-        if (search) {
-            const keyword = search.toLowerCase();
-            products = products.filter(p =>
-                (p.title && p.title.toLowerCase().includes(keyword)) ||
-                (p.description && p.description.toLowerCase().includes(keyword))
-            );
-        }
+            // 🌟 2. 確保價格是數字才轉換，避免 toLocaleString 報錯
+            const safePrice = Number(data.price) || 0;
 
-        // 3. 排序邏輯
-        if (sort === 'price-low') {
-            // 價格：低到高
-            products.sort((a, b) => Number(a.price) - Number(b.price));
-        } else if (sort === 'price-high') {
-            // 價格：高到低
-            products.sort((a, b) => Number(b.price) - Number(a.price));
-        } else {
-            // 預設：最新上架 (recent)
-            products.sort((a, b) => {
-                const dateA = a.createdAt?.seconds || 0;
-                const dateB = b.createdAt?.seconds || 0;
-                return dateB - dateA;
+            products.push({
+                id: doc.id,
+                title: data.title,
+                price: `NT$${safePrice.toLocaleString()}`,
+                image: data.images && data.images.length > 0 ? data.images[0] : "",
+                status: data.status || '上架中',
+                stock: data.stock || 1,
+                views: data.views || 0,
+                createdAt: formattedDate
             });
-        }
+        });
+
+        // 照時間排序：最新的在前
+        products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         res.status(200).json({ success: true, products });
+
     } catch (error) {
-        console.error('❌ 獲取商品失敗:', error);
+        console.error('❌ 撈取賣家商品錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
