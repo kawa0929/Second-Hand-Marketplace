@@ -220,14 +220,14 @@ export function CartPage({ onNavigate }: CartPageProps) {
 
                                     <Separator className="my-6" />
 
-                                    <Button
-                                        size="lg"
-                                        className={`w-full rounded-full text-lg h-14 ${hasDelistedItems ? 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 cursor-not-allowed' : ''}`}
-                                        disabled={hasDelistedItems || validItems.length === 0}
-                                        onClick={() => toast.info("🚀 即將推出結帳功能")}
-                                    >
-                                        {hasDelistedItems ? "請先移除下架商品" : "前往結帳"}
-                                    </Button>
+                                            <Button
+                                                size="lg"
+                                                className={`w-full rounded-full text-lg h-14 ${hasDelistedItems ? 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 cursor-not-allowed' : ''}`}
+                                                disabled={hasDelistedItems || validItems.length === 0}
+                                                onClick={() => onNavigate('checkout')}
+                                            >
+                                                {hasDelistedItems ? "請先移除下架商品" : "前往結帳"}
+                                            </Button>
                                 </CardContent>
                             </Card>
                         </div>

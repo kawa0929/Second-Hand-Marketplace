@@ -18,8 +18,9 @@ import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { EditProductPage } from "./components/EditProductPage";
 import { SellerProfilePage } from "./components/SellerProfilePage";
 import { CartPage } from "./components/CartPage";
+import { CheckoutPage } from "./components/CheckoutPage";
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart';
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout';
 
 const aiProductData = [
   {
@@ -162,6 +163,10 @@ export default function App() {
           aiGeneratedData={aiGeneratedData}
           previousPage={previousPage}
         />
+      )}
+
+      {currentPage === 'checkout' && (
+        <CheckoutPage onNavigate={handleNavigate} />
       )}
 
       {currentPage === 'profile' && (

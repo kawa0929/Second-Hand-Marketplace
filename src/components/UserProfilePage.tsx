@@ -219,7 +219,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
           <TabsContent value="listings" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">上架中的商品 ({userListings.length})</h3>
-              <Button className="rounded-full" onClick={() => onNavigate('post-item')}>
+              <Button className="rounded-full" onClick={() => onNavigate('post')}>
                 <Plus className="w-4 h-4 mr-2" /> 新增刊登
               </Button>
             </div>
@@ -227,7 +227,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
               <div className="text-center py-12 bg-white rounded-2xl border border-border">
                 <Package className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
                 <p className="text-muted-foreground">目前還沒有刊登任何商品喔！</p>
-                <Button variant="link" onClick={() => onNavigate('post-item')} className="mt-2 text-primary">立刻去刊登一個吧</Button>
+                <Button variant="link" onClick={() => onNavigate('post')} className="mt-2 text-primary">立刻去刊登一個吧</Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
