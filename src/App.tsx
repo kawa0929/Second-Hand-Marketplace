@@ -19,8 +19,10 @@ import { EditProductPage } from "./components/EditProductPage";
 import { SellerProfilePage } from "./components/SellerProfilePage";
 import { CartPage } from "./components/CartPage";
 import { CheckoutPage } from "./components/CheckoutPage";
+import { OrderDetailPage } from "./components/OrderDetailPage"; // 🌟 新增匯入訂單詳情頁面
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout';
+// 🌟 PageType 加入 'order-detail'
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'order-detail';
 
 const aiProductData = [
   {
@@ -57,7 +59,6 @@ export default function App() {
   const [previousPage, setPreviousPage] = useState<PageType>('home');
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  // 🌟 新增：網頁一載入，馬上檢查 LocalStorage 同步登入狀態
   useEffect(() => {
     const checkLoginStatus = () => {
       const userStr = localStorage.getItem('user');
@@ -65,7 +66,7 @@ export default function App() {
         try {
           const user = JSON.parse(userStr);
           if (user && user.email) {
-            setIsLoggedIn(true); // 如果有資料，自動恢復成登入狀態！
+            setIsLoggedIn(true);
           }
         } catch (error) {
           console.error("解析使用者資料失敗", error);
@@ -73,7 +74,7 @@ export default function App() {
       }
     };
     checkLoginStatus();
-  }, []); // 空陣列代表只在網頁初始載入時執行一次
+  }, []);
 
   const handleNavigate = (page: string, productId?: string, searchQuery?: string) => {
     setPreviousPage(currentPage);
@@ -88,6 +89,9 @@ export default function App() {
     } else if (page !== 'products') {
       setSearchKeyword("");
     }
+
+    // 跳轉頁面時自動捲動回最上方
+    window.scrollTo(0, 0);
   };
 
   const handleLogin = () => {
@@ -96,7 +100,7 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    localStorage.removeItem('user'); // 確保登出時清空資料
+    localStorage.removeItem('user');
   };
 
   const handleAICapture = () => {
@@ -111,7 +115,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && currentPage !== 'seller-profile' && (
+      {/* 🌟 隱藏導覽列的條件加入 currentPage !== 'order-detail' */}
+      {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'edit-profile' && currentPage !== 'edit-product' && currentPage !== 'ai-camera' && currentPage !== 'ai-processing' && currentPage !== 'ai-confirmation' && currentPage !== 'seller-profile' && currentPage !== 'checkout' && currentPage !== 'order-detail' && (
         <Navigation
           currentPage={currentPage}
           onNavigate={handleNavigate}
@@ -189,6 +194,11 @@ export default function App() {
         <TransactionHistoryPage onNavigate={handleNavigate} />
       )}
 
+      {/* 🌟 新增訂單詳情頁面的渲染邏輯 */}
+      {currentPage === 'order-detail' && (
+        <OrderDetailPage onNavigate={handleNavigate} />
+      )}
+
       {currentPage === 'ai-camera' && (
         <AICameraPage onNavigate={handleNavigate} onCapture={handleAICapture} />
       )}
@@ -203,6 +213,7 @@ export default function App() {
           productData={aiGeneratedData}
         />
       )}
+      
       {currentPage === 'forgot-password' && (
         <ForgotPasswordPage onNavigate={(page) => setCurrentPage(page as any)} />
       )}

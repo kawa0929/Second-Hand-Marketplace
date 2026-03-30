@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, CheckCircle2 } from "lucide-react";
+import { 
+    ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, 
+    CheckCircle2, Smartphone, ExternalLink, Home, FileText 
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { toast } from "sonner";
@@ -10,40 +13,162 @@ interface CheckoutPageProps {
 }
 
 export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
-    // 模擬購物車傳過來的商品資料 (對應你圖二的粉紅豬小妹)
+    // 控制目前畫面顯示哪一個步驟：'form' (填寫表單), 'redirect' (付款跳轉), 'success' (結帳成功)
+    const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
+
+    // 模擬購物車傳過來的商品資料
     const mockCartItem = {
         id: "item-1",
         title: "Peppa Pig 粉紅豬小妹佩佩豬喬治絨毛娃娃玩偶抱枕物款",
         variant: "喬治款",
         price: 150,
         quantity: 1,
-        image: "https://images.unsplash.com/photo-1559805906-81a94127598c?w=500&q=80" // 隨意放個佔位圖
+        image: "https://images.unsplash.com/photo-1559805906-81a94127598c?w=500&q=80"
     };
 
     const [deliveryMethod, setDeliveryMethod] = useState("711"); // 預設 7-11
-    const [paymentMethod, setPaymentMethod] = useState("cod"); // 預設貨到付款
-    const [receiver, setReceiver] = useState({ name: "", phone: "", address: "" });
+    const [paymentMethod, setPaymentMethod] = useState("credit_card"); // 預設改為信用卡
+    
+    // 表單狀態
+    const [receiver, setReceiver] = useState({ name: "", phone: "", city: "", address: "", cardNumber: "" });
+
+    // 台灣縣市假資料 (宅配選單用)
+    const cityOptions = ['基隆市', '台北市', '新北市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '台南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '台東縣', '澎湖縣', '金門縣', '連江縣'];
+
+    // 付款方式清單 (刪除了 iPASS、icash、全盈+PAY)
+    const paymentOptions = [
+        { id: 'credit_card', label: '信用卡', icon: CreditCard, desc: '線上刷卡最方便' },
+        { id: 'cod', label: '貨到付款', icon: Wallet, desc: '取貨時付款即可' },
+        { id: 'jkopay', label: '街口支付', icon: Smartphone, desc: '電子支付' },
+        { id: 'linepay', label: 'LINE Pay', icon: Smartphone, desc: '電子支付' },
+        { id: 'easywallet', label: '悠遊付', icon: Smartphone, desc: '電子支付' },
+        { id: 'pxpay', label: '全支付', icon: Smartphone, desc: '電子支付' },
+    ];
 
     // 計算金額
     const itemTotal = mockCartItem.price * mockCartItem.quantity;
-    const shippingFee = deliveryMethod === "home" ? 100 : 60; // 宅配 100，超商 60
+    const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
 
+    // 隨機產生假訂單編號
+    const mockOrderNumber = `ORD${Math.floor(Math.random() * 100000000).toString().padStart(8, '0')}`;
+
+    // 處理表單送出
     const handleCheckoutSubmit = () => {
+        // 驗證必填
         if (!receiver.name || !receiver.phone || !receiver.address) {
-            toast.error("請填寫完整的收件人資訊喔！");
+            toast.error("請填寫完整的收件人基本資訊喔！");
+            return;
+        }
+        if (deliveryMethod === "home" && !receiver.city) {
+            toast.error("宅配請記得選擇縣市！");
+            return;
+        }
+        if (paymentMethod === "credit_card" && !receiver.cardNumber) {
+            toast.error("請輸入信用卡卡號！");
             return;
         }
 
-        // 這裡未來可以串接後端 API，把訂單資料寫入資料庫
-        console.log("送出訂單:", { items: [mockCartItem], deliveryMethod, paymentMethod, receiver, total: orderTotal });
-
-        // 模擬送出成功的體驗
-        toast.success("🎉 訂單已建立！模擬結帳成功！");
-        // 專題展示用：結帳完導回首頁或導向交易紀錄頁面
-        onNavigate('home');
+        // 判斷該顯示哪一個畫面
+        if (paymentMethod === 'credit_card' || paymentMethod === 'cod') {
+            toast.success("🎉 訂單已建立！");
+            setCheckoutStep('success'); // 直接到成功頁面
+        } else {
+            setCheckoutStep('redirect'); // 電子支付，進入跳轉提示頁面
+        }
     };
 
+    // ==========================================
+    // 畫面 2：付款跳轉提示 (電子支付專用)
+    // ==========================================
+    if (checkoutStep === 'redirect') {
+        return (
+            <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-border max-w-sm w-full text-center space-y-6">
+                    <div className="flex justify-center">
+                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+                            <Smartphone className="w-10 h-10 text-primary" />
+                        </div>
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold mb-3">準備前往第三方支付</h2>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            您選擇了電子支付方式。<br/>
+                            請點擊下方按鈕，系統將引導您至對應的支付平台完成扣款手續。
+                        </p>
+                    </div>
+                    <Button 
+                        className="w-full rounded-xl py-6 text-base font-bold flex items-center justify-center gap-2" 
+                        onClick={() => {
+                            toast.success("付款完成！");
+                            setCheckoutStep('success'); // 點擊後進入成功頁面
+                        }}
+                    >
+                        立即前往 <ExternalLink className="w-5 h-5" />
+                    </Button>
+                    <button 
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors mt-4"
+                        onClick={() => setCheckoutStep('form')} // 返回表單頁面
+                    >
+                        返回重選付款方式
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // 畫面 3：結帳成功
+    // ==========================================
+    if (checkoutStep === 'success') {
+        return (
+            <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
+                <Card className="max-w-md w-full rounded-2xl border-border shadow-sm text-center overflow-hidden">
+                    <div className="bg-green-500 py-8 flex justify-center">
+                        <CheckCircle2 className="w-20 h-20 text-white" />
+                    </div>
+                    <CardContent className="p-8 space-y-6">
+                        <div>
+                            <h1 className="text-2xl font-bold mb-2">訂單建立成功！</h1>
+                            <p className="text-muted-foreground text-sm">
+                                感謝您的購買，賣家將會盡快為您安排出貨。
+                            </p>
+                        </div>
+                        <div className="bg-neutral-50 p-4 rounded-xl text-left border border-neutral-100">
+                            <div className="flex justify-between items-center text-sm mb-2">
+                                <span className="text-muted-foreground">訂單編號</span>
+                                <span className="font-mono font-medium">{mockOrderNumber}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">付款狀態</span>
+                                <span className="text-green-600 font-bold">已完成 / 等待付款</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <Button 
+                                variant="outline" 
+                                className="flex-1 rounded-xl"
+                                onClick={() => onNavigate('home')} 
+                            >
+                                <Home className="w-4 h-4 mr-2" /> 回首頁
+                            </Button>
+                            <Button 
+                                className="flex-1 rounded-xl font-bold"
+                                // 💡 這裡修改成 'transactions' 對應你的 App.tsx 路由
+                                onClick={() => onNavigate('transactions')} 
+                            >
+                                <FileText className="w-4 h-4 mr-2" /> 查看訂單
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // 畫面 1：主結帳表單 (預設顯示)
+    // ==========================================
     return (
         <div className="min-h-screen bg-neutral-50 pb-20">
             {/* 頂部導覽 */}
@@ -58,36 +183,36 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
 
             <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                {/* 左側：填寫資訊區 (佔 2 欄) */}
+                {/* 左側：填寫資訊區 */}
                 <div className="lg:col-span-2 space-y-6">
 
                     {/* 物流方式 */}
                     <Card className="rounded-2xl border-border shadow-sm">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <Truck className="w-5 h-5 text-primary" /> 選擇物流方式
+                                <Truck className="w-5 h-5 text-primary" /> 選擇物流方式 <span className="text-red-500">*</span>
                             </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div
-                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${deliveryMethod === '711' ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
-                                    onClick={() => setDeliveryMethod('711')}
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2 font-bold"><Store className="w-4 h-4" /> 7-11 取貨</div>
-                                        {deliveryMethod === '711' && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                            <div className="flex overflow-x-auto gap-4 pb-2 snap-x">
+                                {[
+                                    { id: '711', label: '7-11 取貨', icon: Store, fee: 60 },
+                                    { id: 'family', label: '全家取貨', icon: Store, fee: 60 },
+                                    { id: 'hilife', label: '萊爾富取貨', icon: Store, fee: 60 },
+                                    { id: 'home', label: '宅配到府', icon: Truck, fee: 100 }
+                                ].map((method) => (
+                                    <div
+                                        key={method.id}
+                                        className={`flex-shrink-0 w-[200px] snap-center p-4 rounded-xl border-2 cursor-pointer transition-all ${deliveryMethod === method.id ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
+                                        onClick={() => setDeliveryMethod(method.id)}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2 font-bold whitespace-nowrap">
+                                                <method.icon className="w-4 h-4" /> {method.label}
+                                            </div>
+                                            {deliveryMethod === method.id && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">運費 NT${method.fee}</div>
                                     </div>
-                                    <div className="text-sm text-muted-foreground">運費 NT$60</div>
-                                </div>
-                                <div
-                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${deliveryMethod === 'home' ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
-                                    onClick={() => setDeliveryMethod('home')}
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2 font-bold"><Truck className="w-4 h-4" /> 宅配到府</div>
-                                        {deliveryMethod === 'home' && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">運費 NT$100</div>
-                                </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
@@ -96,29 +221,24 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                     <Card className="rounded-2xl border-border shadow-sm">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <CreditCard className="w-5 h-5 text-primary" /> 選擇付款方式
+                                <CreditCard className="w-5 h-5 text-primary" /> 選擇付款方式 <span className="text-red-500">*</span>
                             </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div
-                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
-                                    onClick={() => setPaymentMethod('cod')}
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2 font-bold"><Wallet className="w-4 h-4" /> 貨到付款</div>
-                                        {paymentMethod === 'cod' && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                            <div className="flex overflow-x-auto gap-4 pb-2 snap-x">
+                                {paymentOptions.map((option) => (
+                                    <div
+                                        key={option.id}
+                                        className={`flex-shrink-0 w-[200px] snap-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === option.id ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
+                                        onClick={() => setPaymentMethod(option.id)}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2 font-bold whitespace-nowrap text-sm">
+                                                <option.icon className="w-4 h-4" /> {option.label}
+                                            </div>
+                                            {paymentMethod === option.id && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">{option.desc}</div>
                                     </div>
-                                    <div className="text-sm text-muted-foreground">取貨時付款即可</div>
-                                </div>
-                                <div
-                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'transfer' ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
-                                    onClick={() => setPaymentMethod('transfer')}
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2 font-bold"><CreditCard className="w-4 h-4" /> 銀行轉帳</div>
-                                        {paymentMethod === 'transfer' && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">提供專屬虛擬帳號</div>
-                                </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
@@ -131,7 +251,9 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                             </h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">收件人姓名</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        收件人姓名 <span className="text-red-500">*</span>
+                                    </label>
                                     <input
                                         type="text"
                                         className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -141,7 +263,9 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">聯絡電話</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        聯絡電話 <span className="text-red-500">*</span>
+                                    </label>
                                     <input
                                         type="text"
                                         className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -150,30 +274,66 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                         onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })}
                                     />
                                 </div>
+
+                                {deliveryMethod === 'home' && (
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">
+                                            縣市 <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            className="w-full p-3 rounded-xl border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                            value={receiver.city}
+                                            onChange={(e) => setReceiver({ ...receiver, city: e.target.value })}
+                                        >
+                                            <option value="">請選擇縣市</option>
+                                            {cityOptions.map(city => (
+                                                <option key={city} value={city}>{city}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="block text-sm font-medium mb-1">
-                                        {deliveryMethod === '711' ? '取貨門市' : '詳細地址'}
+                                        {deliveryMethod === 'home' ? '詳細地址' : '取貨門市'} <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        placeholder={deliveryMethod === '711' ? '請輸入門市名稱或店號' : '請輸入縣市、區、街道地址'}
+                                        placeholder={deliveryMethod === 'home' ? '請輸入區、街道、巷弄、樓層' : '請輸入門市名稱或店號'}
                                         value={receiver.address}
                                         onChange={(e) => setReceiver({ ...receiver, address: e.target.value })}
                                     />
                                 </div>
+
+                                {paymentMethod === 'credit_card' && (
+                                    <div className="pt-4 mt-4 border-t border-neutral-100">
+                                        <label className="block text-sm font-medium mb-1">
+                                            信用卡卡號 <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            maxLength={16}
+                                            className="w-full p-3 rounded-xl border border-primary/40 bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono tracking-widest"
+                                            placeholder="請輸入 16 碼信用卡號"
+                                            value={receiver.cardNumber}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                setReceiver({ ...receiver, cardNumber: val });
+                                            }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* 右側：訂單摘要 (佔 1 欄) */}
+                {/* 右側：訂單摘要 */}
                 <div>
                     <Card className="rounded-2xl border-border shadow-sm sticky top-24">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4">訂單摘要</h2>
-
-                            {/* 商品明細 (簡單版) */}
                             <div className="flex gap-4 mb-6 pb-6 border-b border-neutral-100">
                                 <div className="w-16 h-16 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0">
                                     <ImageWithFallback src={mockCartItem.image} alt="商品圖" className="w-full h-full object-cover" />
@@ -187,15 +347,13 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* 金額計算 */}
                             <div className="space-y-3 text-sm mb-6">
                                 <div className="flex justify-between text-muted-foreground">
                                     <span>商品總計 (1 件)</span>
                                     <span>NT${itemTotal}</span>
                                 </div>
                                 <div className="flex justify-between text-muted-foreground">
-                                    <span>運費 ({deliveryMethod === '711' ? '超商' : '宅配'})</span>
+                                    <span>運費 ({deliveryMethod === 'home' ? '宅配' : '超商'})</span>
                                     <span>NT${shippingFee}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-lg pt-3 border-t border-neutral-100">
@@ -203,14 +361,12 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                     <span className="text-primary">NT${orderTotal}</span>
                                 </div>
                             </div>
-
                             <Button className="w-full rounded-full py-6 text-base font-bold" onClick={handleCheckoutSubmit}>
                                 確認送出訂單
                             </Button>
                         </CardContent>
                     </Card>
                 </div>
-
             </div>
         </div>
     );
