@@ -1,25 +1,59 @@
-import { ArrowLeft, Zap, ZapOff } from "lucide-react";
+import { ArrowLeft, Zap, ZapOff, Image } from "lucide-react"; // 🌟 新增：Image 圖示
 import { Button } from "./ui/button";
-import { useState } from "react";
+import { useState, useRef } from "react"; // 🌟 新增：useRef
 
 interface AICameraPageProps {
   onNavigate: (page: string) => void;
-  onCapture: () => void;
+  onCapture: (imageUrl?: string) => void; // 🌟 加上 imageUrl?: string
 }
 
 export function AICameraPage({ onNavigate, onCapture }: AICameraPageProps) {
   const [flashEnabled, setFlashEnabled] = useState(false);
 
+  // 🌟 新增：用來觸發隱藏檔案輸入框的 Ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Mock camera preview image
-  const mockCameraPreview = "https://images.unsplash.com/photo-1632222623518-bbbd5f1f2489?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9kdWN0JTIwcGhvdG9ncmFwaHklMjBjYW1lcmF8ZW58MXx8fHwxNzY1NzA5NzIzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
+  const mockCameraPreview = "https://images.unsplash.com/photo-1632222623518-bbbd5f1f2489?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9kdWN0JTIwcGhvdG9ncmFwaHklMjBjYW1lcmF8ZW58MXx8fHwxNz5709723fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
+
+  // 🌟 新增：模擬從相簿上傳的邏輯
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      console.log("選擇了圖片：", file.name);
+
+      // 🌟 新增：使用 FileReader 將圖片轉為 Base64 字串
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // 讀取完成後，這就是完整的 Base64 字串啦！
+        const base64String = reader.result as string;
+
+        // 🌟 核心整合：把這個 Base64 字串（包含圖片內容）傳遞出去！
+        onCapture(base64String);
+      };
+
+      // 開始讀取圖片資料
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black z-50">
+
+      {/* 🌟 新增：隱藏的檔案輸入框，用來開啟相簿 */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {/* Camera Preview Background */}
       <div className="absolute inset-0">
-        <img 
-          src={mockCameraPreview} 
-          alt="相機預覽" 
+        <img
+          src={mockCameraPreview}
+          alt="相機預覽"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/20" />
@@ -36,9 +70,9 @@ export function AICameraPage({ onNavigate, onCapture }: AICameraPageProps) {
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>
-          
+
           <h2 className="text-white">AI 智慧上傳 – 拍照模式</h2>
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -65,7 +99,7 @@ export function AICameraPage({ onNavigate, onCapture }: AICameraPageProps) {
             <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-3xl" />
             <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-3xl" />
           </div>
-          
+
           {/* Hint Text */}
           <div className="absolute -bottom-16 left-0 right-0 text-center">
             <p className="text-white text-sm drop-shadow-lg">
@@ -80,23 +114,30 @@ export function AICameraPage({ onNavigate, onCapture }: AICameraPageProps) {
         <div className="flex items-center justify-center gap-8">
           {/* Thumbnail Preview */}
           <div className="w-14 h-14 rounded-xl border-2 border-white/50 overflow-hidden bg-neutral-800">
-            <img 
-              src={mockCameraPreview} 
-              alt="縮圖預覽" 
+            <img
+              src={mockCameraPreview}
+              alt="縮圖預覽"
               className="w-full h-full object-cover opacity-50"
             />
           </div>
 
           {/* Shutter Button */}
           <button
-            onClick={onCapture}
+            onClick={() => onCapture()}
             className="relative w-20 h-20 rounded-full bg-white shadow-2xl hover:scale-105 transition-transform active:scale-95"
           >
             <div className="absolute inset-2 rounded-full border-4 border-black" />
           </button>
 
-          {/* Spacer for symmetry */}
-          <div className="w-14 h-14" />
+          {/* 🌟 新增：從相簿上傳按鈕 (取代原本的 Spacer) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-14 h-14 rounded-full text-white/70 hover:text-white hover:bg-white/20 active:scale-95"
+          >
+            <Image className="w-8 h-8" />
+          </Button>
         </div>
       </div>
     </div>

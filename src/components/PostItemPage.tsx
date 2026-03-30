@@ -1,4 +1,4 @@
-import { Upload, X, ChevronLeft, Sparkles, Plus, Trash2 } from "lucide-react";
+import { Upload, X, ChevronLeft, Sparkles, Plus, Trash2, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { generateHighConversionDescription } from "../utils/aiHelpers"; // 注意路徑
 
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
@@ -29,6 +30,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [condition, setCondition] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
+  // 🌟 新增：用來控制 AI 產生文案時的 Loading 狀態
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const [variations, setVariations] = useState<Variation[]>([
     { id: Date.now().toString(), name: "", price: "", stock: "1" }
   ]);
@@ -50,7 +54,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
   }, [aiGeneratedData]);
 
-  // 🌟 修改：加入雙 API Key 輪替機制，並移除本機假網址預覽
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -67,25 +70,23 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
     setIsUploading(true);
 
-    // 🌟 把你申請到的兩把 Key 都放在這個陣列裡
     const IMGBB_API_KEYS = [
-      "f428676453b3be7a71b6eb5ffe777c91", 
-      "56b4b5dbdd71601bcf28d83010505b19" // 這把你原本舊的就當作備用
+      "f428676453b3be7a71b6eb5ffe777c91",
+      "56b4b5dbdd71601bcf28d83010505b19"
     ];
 
     let uploadSuccess = false;
     let uploadedUrl = "";
 
-    // 🌟 開始輪替測試：如果第一把失敗，就自動試第二把
     for (const apiKey of IMGBB_API_KEYS) {
-      if (!apiKey || apiKey.includes("請填入")) continue; // 防呆，跳過沒填的預設文字
+      if (!apiKey || apiKey.includes("請填入")) continue;
 
       try {
         const formData = new FormData();
         formData.append("image", file);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超時
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
           method: "POST",
@@ -99,20 +100,17 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
         if (result.success) {
           uploadedUrl = result.data.url;
           uploadSuccess = true;
-          break; // 🎯 成功了！跳出迴圈，不用再試下一把 Key
+          break;
         }
       } catch (error) {
         console.warn(`Key ${apiKey} 上傳失敗，嘗試下一把...`, error);
-        // 失敗了就什麼都不做，讓迴圈繼續跑，去試下一把 Key
       }
     }
 
-    // 🌟 判斷最終結果
     if (uploadSuccess) {
       setImages((prev) => [...prev, uploadedUrl]);
       toast.success("照片上傳成功！📸");
     } else {
-      // 兩把 Key 都失敗，直接報錯，不再存入 blob 假網址
       toast.error("圖片上傳失敗，請確認 API Key 額度或稍後再試！");
     }
 
@@ -142,6 +140,25 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
   const updateVariation = (id: string, field: keyof Variation, value: string) => {
     setVariations(variations.map(v => v.id === id ? { ...v, [field]: value } : v));
+  };
+
+  // 🌟 新增：逼真的 AI 銷售文案生成邏輯
+  const handleAIGenerateCopy = () => {
+    if (!title) {
+      toast.error("請先輸入上方「商品名稱」，AI 才有靈感幫你寫文案喔！");
+      return;
+    }
+
+    setIsGenerating(true);
+
+    setTimeout(() => {
+      // 🌟 核心整合：不再自己手寫一堆字，而是呼叫全域大腦！
+      const generatedText = generateHighConversionDescription(title, condition);
+
+      setDescription(generatedText);
+      setIsGenerating(false);
+      toast.success("✨ AI 已為您生成專屬高轉換率文案！");
+    }, 1500);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,7 +201,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
     for (let i = 0; i < variations.length; i++) {
       const v = variations[i];
-      
+
       if (isMultiVariation && !v.name.trim()) {
         toast.error(`請填寫第 ${i + 1} 個規格的名稱！`);
         return;
@@ -319,18 +336,37 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                 />
               </div>
 
+              {/* 🌟 替換區域：商品描述與 AI 生成按鈕 */}
               <div className="space-y-2">
-                <div className="flex justify-between items-end">
+                <div className="flex justify-between items-end mb-1">
                   <Label htmlFor="description">商品描述 <span className="text-red-500">*</span></Label>
                   <span className={`text-xs ${description.length > 3000 || (description.length > 0 && description.length < 5) ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{description.length}/3000</span>
                 </div>
+
+                <div className="flex justify-end mb-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-purple-600 border-purple-200 hover:bg-purple-50 hover:text-purple-700 rounded-full transition-all"
+                    onClick={handleAIGenerateCopy}
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> AI 正在撰寫中...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4 mr-2" /> AI 幫我寫文案</>
+                    )}
+                  </Button>
+                </div>
+
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={3000}
                   placeholder="最少輸入 5 個字，描述一下商品的使用狀況、尺寸等..."
-                  className="rounded-xl min-h-32 bg-white border-border resize-none"
+                  className="rounded-xl min-h-48 bg-white border-border resize-none"
                 />
               </div>
 
@@ -390,7 +426,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
               <div className="space-y-4">
                 {variations.map((variation, index) => (
                   <div key={variation.id} className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-100 relative">
-                    
+
                     <div className="w-full sm:flex-1 space-y-2">
                       <Label className="text-xs text-muted-foreground">
                         款式名稱 {variations.length > 1 && <span className="text-red-500">*</span>}
@@ -402,7 +438,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                         className="bg-white rounded-lg"
                       />
                     </div>
-                    
+
                     <div className="w-full sm:w-32 space-y-2">
                       <Label className="text-xs text-muted-foreground">單價 (NT$) <span className="text-red-500">*</span></Label>
                       <Input
@@ -413,7 +449,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                         className="bg-white rounded-lg"
                       />
                     </div>
-                    
+
                     <div className="w-full sm:w-24 space-y-2">
                       <Label className="text-xs text-muted-foreground">數量 <span className="text-red-500">*</span></Label>
                       <Input

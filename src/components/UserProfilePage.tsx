@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle, Edit, Plus } from "lucide-react";
-import { Button } from "./ui/button";
+import { Settings, MapPin, Calendar, Package, Heart, LogOut, Receipt, AlertCircle, Edit, Plus, TrendingUp } from "lucide-react"; import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -167,6 +166,11 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    {/* 👇 這是我們新增的賣家後台按鈕 */}
+                    <Button variant="default" size="sm" className="rounded-full bg-primary hover:bg-primary/90" onClick={() => onNavigate('dashboard')}>
+                      <TrendingUp className="w-4 h-4 mr-2" /> 賣家數據中心
+                    </Button>
+
                     <Button variant="outline" size="sm" className="rounded-full" onClick={() => onNavigate('edit-profile')}>
                       <Settings className="w-4 h-4 mr-2" /> 編輯個人資料
                     </Button>

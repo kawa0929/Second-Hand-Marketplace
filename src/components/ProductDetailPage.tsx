@@ -100,6 +100,35 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       fetchProduct();
       checkFavoriteStatus();
     }
+
+    if (productId) {
+      // 從 LocalStorage 拿取「已瀏覽過的商品清單」(如果沒有就給空陣列)
+      const viewedProducts = JSON.parse(localStorage.getItem('viewedProducts') || '[]');
+
+      // 檢查這個商品 ID 是否已經在清單中
+      if (!viewedProducts.includes(productId)) {
+
+        // 如果沒看過，發送 API 告訴後端瀏覽次數 +1
+        fetch(`http://localhost:3001/api/products/${productId}/view`, {
+          method: 'POST', // 或是 PUT，看你們後端怎麼設計
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              // 🌟 後端成功 +1 後，才把這個商品 ID 加進 LocalStorage
+              viewedProducts.push(productId);
+              localStorage.setItem('viewedProducts', JSON.stringify(viewedProducts));
+              console.log("瀏覽次數已更新，並記錄防刷機制！");
+            }
+          })
+          .catch(err => console.error("更新瀏覽次數失敗:", err));
+      } else {
+        console.log("已經瀏覽過此商品，觸發防刷機制，不增加次數。");
+      }
+    }
   }, [productId, onNavigate, previousPage]);
 
   const getCurrentUser = () => {

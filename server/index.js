@@ -1,9 +1,11 @@
-// server/index.js
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs');
 const serviceAccount = require('./firebase-key.json'); // 引入你的金鑰
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 
 const app = express();
 app.use(cors());
@@ -663,6 +665,79 @@ app.delete('/api/cart/:cartId', async (req, res) => {
         res.status(200).json({ success: true, message: '已從購物車移除' });
     } catch (error) {
         res.status(500).json({ success: false, message: '移除失敗' });
+    }
+});
+
+app.post('/api/products/:id/view', async (req, res) => {
+    try {
+        const productId = req.params.id;
+        await db.collection('products').doc(productId).update({
+            views: admin.firestore.FieldValue.increment(1)
+        });
+
+        res.json({ success: true, message: '瀏覽次數已成功 +1' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
+// 🌟 新增：Gemini API 設定 (Key 請從環境變數讀取，安全第一)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 新增：AI 圖片辨識 API
+app.post('/api/ai-analyze-image', async (req, res) => {
+    try {
+        const { imageBase64 } = req.body; // 接收前端傳來的圖片 Base64 字串
+
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, message: '請提供圖片資料' });
+        }
+
+        // 1. 初始化 Gemini Pro Vision 模型
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+
+        // 2. 🌟 撰寫精準咒語 (Prompt) - 讓 AI 直接回傳乾淨的 JSON 格式，方便程式解析
+        const prompt = `你是二手市集的智慧上傳助手。請分析這張圖片中的商品。
+
+            請僅回傳一個 JSON 格式的內容，不要包含任何 \`\`\`json 文字。JSON 結構如下：
+            {
+            "title": "（產生一個吸引人的 20 字內商品名稱）",
+            "category": "（請精準判斷並從以下分類選一個：electronics, furniture, fashion, sports, books, toys, idol, other）",
+            "condition": "（根據外觀精準判斷狀況，選一個：like-new, excellent, good, fair）",
+            "description": "（產生一段 150 字內的行銷文案，包含 Emoji，介紹商品外觀狀況與優點）",
+            "suggestedPrice": （一個合理的二手建議台幣售價，數字即可，不要加 NT$）
+            }`;
+
+        // 3. 準備圖片資料格式
+        const imagePart = {
+            inlineData: {
+                data: imageBase64.split(",")[1], // 移除 base64 開頭的 "data:image/png;base64," 等字串
+                mimeType: imageBase64.split(",")[0].split(":")[1].split(";")[0] // 自動偵測 mimeType
+            },
+        };
+
+        // 4. 🔥 發送給 Gemini 進行真實辨識！
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        let text = response.text();
+
+        // 5. 🌟 核心清理： Gemini 有時候會雞婆加上 \`\`\`json ... \`\`\`，我們要把它清理掉才能解析
+        if (text.includes("```json")) {
+            text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        } else if (text.includes("```")) {
+            text = text.replace(/```/g, "").trim();
+        }
+
+        // 6. 解析 JSON 資料
+        const aiData = JSON.parse(text);
+
+        // 7. 回傳給前端
+        res.json({ success: true, data: aiData });
+
+    } catch (error) {
+        console.error("Gemini 辨識失敗:", error);
+        // 如果 JSON 解析失敗，通常是 Prompt 寫得不夠好，回傳錯誤讓前端處理
+        res.status(500).json({ success: false, message: 'AI 辨識失敗，請再試一次或手動填寫。' });
     }
 });
 

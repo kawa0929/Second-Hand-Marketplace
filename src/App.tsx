@@ -19,10 +19,18 @@ import { EditProductPage } from "./components/EditProductPage";
 import { SellerProfilePage } from "./components/SellerProfilePage";
 import { CartPage } from "./components/CartPage";
 import { CheckoutPage } from "./components/CheckoutPage";
+<<<<<<< HEAD
 import { OrderDetailPage } from "./components/OrderDetailPage"; // 🌟 新增匯入訂單詳情頁面
 
 // 🌟 PageType 加入 'order-detail'
 type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'order-detail';
+=======
+import { SellerDashboardPage } from "./components/SellerDashboardPage";
+import { generateHighConversionDescription } from "./utils/aiHelpers";
+import { toast } from "sonner";
+
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'dashboard';
+>>>>>>> 0ffe79b9801cdf15e4231d3a74e9b84fc7d1faa5
 
 const aiProductData = [
   {
@@ -58,6 +66,12 @@ export default function App() {
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
   const [previousPage, setPreviousPage] = useState<PageType>('home');
   const [searchKeyword, setSearchKeyword] = useState("");
+  // 🌟 新增：用來記住使用者真實上傳的相片網址
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage]);
 
   useEffect(() => {
     const checkLoginStatus = () => {
@@ -103,14 +117,64 @@ export default function App() {
     localStorage.removeItem('user');
   };
 
-  const handleAICapture = () => {
+  // 🌟 修改：接收真實圖片並存起來
+  const handleAICapture = (imageUrl?: string) => {
+    setCapturedImage(imageUrl || null);
     setCurrentPage('ai-processing');
   };
 
   const handleAIProcessingComplete = () => {
-    const productData = aiProductData[Math.floor(Math.random() * aiProductData.length)];
-    setAiGeneratedData(productData);
-    setCurrentPage('ai-confirmation');
+    // 防呆：如果根本沒上傳圖片，什麼事都不做 (模擬快門按鈕在沒有串 Gemini 時，先不執行)
+    if (!capturedImage) {
+      toast.error("此功能目前需搭配『上傳真實圖片』才能運作喔！");
+      setCurrentPage('post'); // 跳回刊登頁
+      return;
+    }
+
+    // --- 👇 以下是真正的 Gemini 整合邏輯 👇 ---
+
+    // 🌟 第一步：呼叫後端 API，傳送圖片 Base64
+    fetch('http://localhost:3001/api/ai-analyze-image', { // 🌟 記得改成你們後端的 URL
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ imageBase64: capturedImage }) // capturedImage 現在是 Base64 字串
+    })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data) {
+          const aiData = result.data; // 這是 Gemini 回傳的真實辨識結果 JSON
+
+          // 🌟 第二步：使用我們寫好的全域大腦（aiHelpers）「重新算一遍」更強大的文案 (可選)
+          // 或是直接使用 Gemini 回傳的描述：
+          // const finalDescription = generateHighConversionDescription(aiData.title, aiData.condition);
+          const finalDescription = aiData.description; // 直接用 Gemini 的描述，Demo 時更逼真
+
+          // 🌟 第三步：完美整合真實資料與真實圖片
+          const integratedProductData = {
+            image: capturedImage, // 真實圖片 Base64
+            title: aiData.title, // 真實 AI 辨識出的標題
+            category: aiData.category, // 真實 AI 分類
+            condition: aiData.condition, // 真實 AI 狀況判斷
+            description: finalDescription, // 真實 AI 文案
+            price: aiData.suggestedPrice.toString(), // 真實 AI 建議價格
+          };
+
+          setAiGeneratedData(integratedProductData);
+          setCurrentPage('ai-confirmation'); // 跳轉到確認頁
+        } else {
+          // 後端回傳失敗 (例如 Gemini 雞婆加了別的字)
+          toast.error("AI 辨識遇到一點小問題，請手動上傳或再試一次。");
+          setCurrentPage('post');
+        }
+      })
+      .catch(err => {
+        // 伺服器掛掉或網路錯誤
+        console.error("AI 辨識錯誤:", err);
+        toast.error("AI 辨識服務暫時無法連線，請檢查網路或稍後再試。");
+        setCurrentPage('post');
+      });
   };
 
   return (
@@ -216,6 +280,10 @@ export default function App() {
       
       {currentPage === 'forgot-password' && (
         <ForgotPasswordPage onNavigate={(page) => setCurrentPage(page as any)} />
+      )}
+
+      {currentPage === 'dashboard' && (
+        <SellerDashboardPage onNavigate={handleNavigate} />
       )}
 
       <Toaster />
