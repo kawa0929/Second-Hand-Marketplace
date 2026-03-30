@@ -666,5 +666,19 @@ app.delete('/api/cart/:cartId', async (req, res) => {
     }
 });
 
+app.post('/api/products/:id/view', async (req, res) => {
+    try {
+        const productId = req.params.id;
+        await db.collection('products').doc(productId).update({
+            views: admin.firestore.FieldValue.increment(1)
+        });
+
+        res.json({ success: true, message: '瀏覽次數已成功 +1' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));
