@@ -19,18 +19,15 @@ import { EditProductPage } from "./components/EditProductPage";
 import { SellerProfilePage } from "./components/SellerProfilePage";
 import { CartPage } from "./components/CartPage";
 import { CheckoutPage } from "./components/CheckoutPage";
-<<<<<<< HEAD
-import { OrderDetailPage } from "./components/OrderDetailPage"; // 🌟 新增匯入訂單詳情頁面
 
-// 🌟 PageType 加入 'order-detail'
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'order-detail';
-=======
+// --- 解決衝突：保留你新增的訂單詳情，也保留組員新增的賣家儀表板與 AI 工具 ---
+import { OrderDetailPage } from "./components/OrderDetailPage"; 
 import { SellerDashboardPage } from "./components/SellerDashboardPage";
 import { generateHighConversionDescription } from "./utils/aiHelpers";
 import { toast } from "sonner";
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'dashboard';
->>>>>>> 0ffe79b9801cdf15e4231d3a74e9b84fc7d1faa5
+// --- 解決衝突：PageType 裡面同時加入 'order-detail' 與 'dashboard' ---
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'order-detail' | 'dashboard';
 
 const aiProductData = [
   {
@@ -282,6 +279,7 @@ export default function App() {
         <ForgotPasswordPage onNavigate={(page) => setCurrentPage(page as any)} />
       )}
 
+      {/* 🌟 你的組員新增的：賣家儀表板頁面 */}
       {currentPage === 'dashboard' && (
         <SellerDashboardPage onNavigate={handleNavigate} />
       )}
