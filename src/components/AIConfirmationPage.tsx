@@ -4,6 +4,7 @@ import { Card, CardContent } from "./ui/card";
 
 interface AIConfirmationPageProps {
   onNavigate: (page: string) => void;
+  onSkip?: () => void;
   productData: {
     title: string;
     description: string;
@@ -11,8 +12,8 @@ interface AIConfirmationPageProps {
   };
 }
 
-export function AIConfirmationPage({ onNavigate, productData }: AIConfirmationPageProps) {
-  return (
+export function AIConfirmationPage({ onNavigate, onSkip, productData }: AIConfirmationPageProps) {
+    return (
     <div className="fixed inset-0 bg-white z-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Success Icon */}
@@ -93,7 +94,13 @@ export function AIConfirmationPage({ onNavigate, productData }: AIConfirmationPa
 
         {/* Skip Link */}
         <button
-          onClick={() => onNavigate('post')}
+          onClick={() => {
+            if (onSkip) {
+              onSkip(); // 如果有傳入清空函數，就執行它
+            } else {
+              onNavigate('post'); // 如果沒有，就照舊回上一頁
+            }
+          }}
           className="w-full text-center text-muted-foreground hover:text-foreground transition-colors mt-4"
         >
           跳過

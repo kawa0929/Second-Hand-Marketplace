@@ -257,7 +257,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Button 
           variant="ghost" 
-          onClick={() => onNavigate(previousPage === 'ai-camera' ? 'home' : previousPage)} 
+          onClick={() => onNavigate(previousPage)}
           className="mb-6 rounded-full"
 >
   <ChevronLeft className="w-4 h-4 mr-2" /> 取消
@@ -482,12 +482,20 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
-          <div className="flex gap-4">
-            <Button type="button" variant="outline" size="lg" className="flex-1 rounded-full" onClick={() => onNavigate(previousPage)}>取消</Button>
-            <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
-              {isUploading ? "圖片上傳中..." : "發布刊登"}
-            </Button>
-          </div>
+      <div className="flex gap-4">
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="lg" 
+          className="flex-1 rounded-full" 
+          onClick={() => onNavigate(previousPage === 'ai-camera' ? 'home' : previousPage)}
+        >
+          取消
+        </Button>
+        <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
+          {isUploading ? "圖片上傳中..." : "發布刊登"}
+        </Button>
+        </div>
         </form>
       </div>
     </div>
