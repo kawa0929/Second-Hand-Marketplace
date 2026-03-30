@@ -19,8 +19,9 @@ import { EditProductPage } from "./components/EditProductPage";
 import { SellerProfilePage } from "./components/SellerProfilePage";
 import { CartPage } from "./components/CartPage";
 import { CheckoutPage } from "./components/CheckoutPage";
+import { SellerDashboardPage } from "./components/SellerDashboardPage";
 
-type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout';
+type PageType = 'home' | 'login' | 'register' | 'products' | 'product-detail' | 'post' | 'profile' | 'chat' | 'edit-profile' | 'transactions' | 'ai-camera' | 'ai-processing' | 'ai-confirmation' | 'forgot-password' | 'edit-product' | 'seller-profile' | 'cart' | 'checkout' | 'dashboard';
 
 const aiProductData = [
   {
@@ -56,6 +57,10 @@ export default function App() {
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
   const [previousPage, setPreviousPage] = useState<PageType>('home');
   const [searchKeyword, setSearchKeyword] = useState("");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage]);
 
   // 🌟 新增：網頁一載入，馬上檢查 LocalStorage 同步登入狀態
   useEffect(() => {
@@ -205,6 +210,10 @@ export default function App() {
       )}
       {currentPage === 'forgot-password' && (
         <ForgotPasswordPage onNavigate={(page) => setCurrentPage(page as any)} />
+      )}
+
+      {currentPage === 'dashboard' && (
+        <SellerDashboardPage onNavigate={handleNavigate} />
       )}
 
       <Toaster />
