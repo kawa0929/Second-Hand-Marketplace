@@ -143,12 +143,12 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                             </h2>
                             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                 {[
-                                    { id: 'credit_card', label: '信用卡', desc: '線上刷卡最方便' },
-                                    { id: 'cod', label: '貨到付款', desc: '取貨時付款即可' },
-                                    { id: 'linepay', label: 'LINE Pay', desc: '快速條碼支付' },
-                                    { id: 'jkopay', label: '街口支付', desc: '支援街口幣折抵' },
-                                    { id: 'easywallet', label: '悠遊付', desc: '悠遊卡支付' },
-                                    { id: 'pxpay', label: '全支付', desc: '全聯跨通路支付' },
+                                    { id: 'credit_card', label: '信用卡', desc: '線上刷卡' },
+                                    { id: 'cod', label: '貨到付款', desc: '取貨時付款' },
+                                    { id: 'linepay', label: 'LINE Pay', desc: '電子支付' },
+                                    { id: 'jkopay', label: '街口支付', desc: '電子支付' },
+                                    { id: 'easywallet', label: '悠遊付', desc: '電子支付' },
+                                    { id: 'pxpay', label: '全支付', desc: '電子支付' },
                                 ].map((p) => (
                                     <div
                                         key={p.id}
