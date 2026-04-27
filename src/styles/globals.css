@@ -1,4 +1,10 @@
-/* 這是 Po 設計的全新亮色系配色 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────
+   Po 設計的全新亮色系配色
+───────────────────────────────────────── */
 :root {
   --font-size: 16px;
   --background: #F8FAFC;
@@ -33,8 +39,8 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #BCCCDC;
   --sidebar-ring: #9AA6B2;
-  
-  /* 保留原本圖表需要的變數，避免未來加圖表時報錯 */
+
+  /* 圖表變數（備用） */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -42,7 +48,9 @@
   --chart-5: oklch(0.769 0.188 70.08);
 }
 
-/* 橋樑：將變數綁定到 Tailwind (這是讓你的顏色生效的關鍵) */
+/* ─────────────────────────────────────────
+   橋樑：將 CSS 變數綁定到 Tailwind
+───────────────────────────────────────── */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -84,17 +92,22 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* 設定整個網頁的預設背景與文字顏色，並加上基礎邊框設定 */
+/* ─────────────────────────────────────────
+   Base layer — 預設邊框、文字顏色
+───────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
 
-/* 基礎排版與字體大小設定 */
+/* ─────────────────────────────────────────
+   基礎排版
+───────────────────────────────────────── */
 @layer base {
   :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
     h1 {
@@ -102,36 +115,43 @@
       font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
+
     h2 {
       font-size: var(--text-xl);
       font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
+
     h3 {
       font-size: var(--text-lg);
       font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
+
     h4 {
       font-size: var(--text-base);
       font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
+
     p {
       font-size: var(--text-base);
       font-weight: var(--font-weight-normal);
       line-height: 1.5;
     }
+
     label {
       font-size: var(--text-base);
       font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
+
     button {
       font-size: var(--text-base);
       font-weight: var(--font-weight-medium);
       line-height: 1.5;
     }
+
     input {
       font-size: var(--text-base);
       font-weight: var(--font-weight-normal);
@@ -144,15 +164,36 @@ html {
   font-size: var(--font-size);
 }
 
-/* 自訂導覽列背景色 (淺紫色) */
+/* ─────────────────────────────────────────
+   自訂導覽列背景色
+───────────────────────────────────────── */
 .bg-custom-purple {
-  background-color: #D5C1DC;
+  background-color: rgba(255, 255, 255, 0.1);
+  /* 極淡的白色 */
+  backdrop-filter: blur(8px);
+  /* 背景模糊效果 */
 }
 
-/* UI 動畫設定 */
+/* ─────────────────────────────────────────
+   手機版下拉選單背景 (白色半透明毛玻璃)
+───────────────────────────────────────── */
+.bg-mobile-menu {
+  background-color: rgba(255, 255, 255, 0.85);
+  /* 85% 不透明度的白色，確保文字清晰 */
+  backdrop-filter: blur(12px);
+  /* 讓背後的圖片模糊化，增加質感 */
+}
+/* ─────────────────────────────────────────
+   UI 動畫
+───────────────────────────────────────── */
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .animate-shimmer {

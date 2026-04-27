@@ -1,11 +1,7 @@
-import { Search, TrendingUp, Heart, AlertCircle, ChevronRight } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Card, CardContent } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { Search, Heart, ChevronRight, ArrowRight, MoveRight, Laptop, Sofa, Shirt, Dumbbell, BookOpen, Gamepad, Flower2, Disc3, Box } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { LoginPromptDialog } from "./LoginPromptDialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 interface HomePageProps {
@@ -14,25 +10,131 @@ interface HomePageProps {
 }
 
 const categories = [
-  { id: "electronics", name: "電子產品" },
-  { id: "furniture", name: "家具" },
-  { id: "fashion", name: "服飾配件" },
-  { id: "sports", name: "運動用品" },
-  { id: "books", name: "書籍" },
-  { id: "toys", name: "玩具" },
-  { id: "plants", name: "居家園藝" },
-  { id: "kitchen", name: "廚房用品" },
-  { id: "idol", name: "偶像周邊" },
-  { id: "other", name: "其他" },
+  {
+    id: "electronics", name: "電子產品", bracketName: "[ 電子產品 ]",
+    img: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80",
+    Icon: Laptop,
+  },
+  {
+    id: "furniture", name: "家具", bracketName: "[ 家具 ]",
+    img: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80",
+    Icon: Sofa,
+  },
+  {
+    id: "fashion", name: "服飾配件", bracketName: "[ 服飾配件 ]",
+    img: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=800&q=80",
+    Icon: Shirt,
+  },
+  {
+    id: "sports", name: "運動用品", bracketName: "[ 運動用品 ]",
+    img: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80",
+    Icon: Dumbbell,
+  },
+  {
+    id: "books", name: "書籍", bracketName: "[ 書籍 ]",
+    img: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&q=80",
+    Icon: BookOpen,
+  },
+  {
+    id: "toys", name: "玩具", bracketName: "[ 玩具 ]",
+    img: "https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=800&q=80",
+    Icon: Gamepad,
+  },
+  {
+    id: "plants", name: "居家園藝", bracketName: "[ 居家園藝 ]",
+    img: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80",
+    Icon: Flower2,
+  },
+  {
+    id: "kitchen", name: "廚房用品", bracketName: "[ 廚房用品 ]",
+    img: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80",
+    Icon: Box,
+  },
+  {
+    id: "idol", name: "偶像周邊", bracketName: "[ 偶像周邊 ]",
+    img: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&q=80",
+    Icon: Disc3,
+  },
+  {
+    id: "other", name: "其他", bracketName: "[ 其他 ]",
+    img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
+    Icon: Box,
+  },
 ];
 
-const conditionConfig: Record<string, { label: string; color: string }> = {
-  "new": { label: "全新", color: "bg-emerald-100 text-emerald-700" },
-  "like-new": { label: "近全新", color: "bg-blue-100 text-blue-700" },
-  "excellent": { label: "極佳", color: "bg-indigo-100 text-indigo-700" },
-  "good": { label: "良好", color: "bg-amber-100 text-amber-700" },
-  "fair": { label: "尚可", color: "bg-stone-200 text-stone-700" },
+const conditionConfig: Record<string, { label: string }> = {
+  "new": { label: "全新" },
+  "like-new": { label: "近全新" },
+  "excellent": { label: "極佳" },
+  "good": { label: "良好" },
+  "fair": { label: "尚可" },
 };
+
+// ── Intersection Observer hook for scroll-triggered animations ──
+function useReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.12 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+function RevealSection({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── Per-item staggered reveal Hook ──
+function useRevealItem(index: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          // Stagger delay based on index
+          setTimeout(() => setVisible(true), (index % 4) * 80);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [index]);
+  return { ref, visible };
+}
+
+// ── 修正重點：建立一個獨立的 Wrapper 元件來解決 React Hook 迴圈報錯問題 ──
+function RevealGridItem({ index, children, className = "", onClick }: { index: number, children: React.ReactNode, className?: string, onClick?: (e: React.MouseEvent) => void }) {
+  const { ref, visible } = useRevealItem(index);
+  return (
+    <div
+      ref={ref}
+      onClick={onClick}
+      className={`transition-all duration-600 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -42,54 +144,33 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/products')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          // 首頁只顯示最新 8 件，其他的點擊「查看更多」去看
-          setLatestProducts(data.products.slice(0, 8));
-        }
-      })
+    fetch("http://localhost:3001/api/products")
+      .then(r => r.json())
+      .then(data => { if (data.success) setLatestProducts(data.products.slice(0, 8)); })
       .catch(err => console.error("獲取商品失敗:", err))
       .finally(() => setIsLoading(false));
 
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     if (userStr) {
       const user = JSON.parse(userStr);
       fetch(`http://localhost:3001/api/favorites/${user.email}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setUserFavorites(data.favorites.map((f: any) => f.id));
-          }
-        });
+        .then(r => r.json())
+        .then(data => { if (data.success) setUserFavorites(data.favorites.map((f: any) => f.id)); });
     }
   }, []);
 
   const handleToggleFavorite = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      setShowLoginPrompt(true);
-      return;
-    }
+    const userStr = localStorage.getItem("user");
+    if (!userStr) { setShowLoginPrompt(true); return; }
     const user = JSON.parse(userStr);
-
-    if (product.status === '已下架') {
-      toast.error("此商品已下架，無法加入收藏喔！");
-      return;
-    }
-
-    if (user.email === product.sellerEmail) {
-      toast.error("這是您自己刊登的商品，不需要收藏啦！");
-      return;
-    }
-
+    if (product.status === "已下架") { toast.error("此商品已下架，無法加入收藏喔！"); return; }
+    if (user.email === product.sellerEmail) { toast.error("這是您自己刊登的商品，不需要收藏啦！"); return; }
     try {
-      const res = await fetch('http://localhost:3001/api/favorites/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, productId: product.id })
+      const res = await fetch("http://localhost:3001/api/favorites/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, productId: product.id }),
       });
       const data = await res.json();
       if (data.success) {
@@ -101,164 +182,267 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           toast.success("已取消收藏");
         }
       }
-    } catch (e) {
-      toast.error("操作失敗，請檢查網路");
-    }
+    } catch { toast.error("操作失敗，請檢查網路"); }
   };
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (searchQuery.trim()) {
-      onNavigate('products', undefined, searchQuery.trim());
-    }
+    if (searchQuery.trim()) onNavigate("products", undefined, searchQuery.trim());
   };
 
   const handleProductClick = (product: any) => {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     const currentUser = userStr ? JSON.parse(userStr) : null;
-
     if (product.status === "已下架") {
-      if (currentUser && currentUser.email === product.sellerEmail) {
-        onNavigate('edit-product', product.id);
-      } else {
-        toast.error("此商品目前已下架");
-      }
+      currentUser?.email === product.sellerEmail
+        ? onNavigate("edit-product", product.id)
+        : toast.error("此商品目前已下架");
     } else {
-      onNavigate('product-detail', product.id);
+      onNavigate("product-detail", product.id);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-50/50">
-      <section className="bg-white border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl font-bold tracking-tight">輕鬆買賣二手好物</h1>
-            <p className="mt-4 text-muted-foreground text-lg">探索社群中的優質二手商品，享受超值好價格</p>
+    <div className="min-h-screen flex flex-col bg-white text-gray-900 antialiased">
 
-            <form onSubmit={handleSearch} className="mt-8 flex gap-2 max-w-2xl mx-auto">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  placeholder="搜尋商品關鍵字..."
-                  className="pl-12 h-12 rounded-full border-0 shadow-sm bg-neutral-100 text-base focus:bg-white transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Button type="submit" size="lg" className="rounded-full px-8 shadow-md">搜尋</Button>
-            </form>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          HERO — truly full-bleed, sits behind the
+          frosted-glass Navigation via z-index.
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <section className="relative w-full h-screen min-h-[600px] overflow-hidden -mt-[var(--nav-height,0px)]">
+
+        {/* Full-bleed background image */}
+        <img
+          src="https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=1800&q=85"
+          alt="hero background"
+          className="absolute inset-0 w-full h-full object-cover object-center select-none"
+          draggable={false}
+        />
+
+        {/* Gradient scrim — heavy at bottom for text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10 pointer-events-none" />
+
+        {/* Hero content — bottom-left anchored, staggered fade-in on load */}
+        <div className="absolute bottom-0 left-0 right-0 px-8 sm:px-16 pb-14 flex flex-col sm:flex-row items-end justify-between gap-6">
+
+          {/* Left block */}
+          <div className="animate-hero-text">
+            <p className="text-white/55 text-xs tracking-[0.25em] uppercase mb-4 font-medium">
+              二手好物市集
+            </p>
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.1] tracking-tight">
+              讓閒置物品，<br />找到新的歸屬
+            </h1>
+            <p className="mt-4 text-white/65 text-base max-w-sm leading-relaxed">
+              探索社群中的優質二手商品，享受超值好價格。
+            </p>
+          </div>
+
+          {/* Right — pill CTA */}
+          <div className="shrink-0 animate-hero-cta">
+            <button
+              onClick={() => onNavigate("products")}
+              className="flex items-center gap-2 bg-white/95 backdrop-blur-sm text-gray-900 text-sm font-semibold px-8 py-4 rounded-full hover:bg-white active:scale-95 transition-all duration-200 shadow-xl"
+            >
+              立即探索 <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold">瀏覽分類</h2>
-        </div>
-        <div className="flex flex-nowrap gap-4 overflow-x-auto pb-4 scrollbar-hide">
-          {categories.map((category) => (
-            <Card
-              key={category.id}
-              className="flex-shrink-0 w-40 cursor-pointer hover:shadow-md transition-all rounded-2xl border-border bg-white"
-              // 🌟 這裡修改了：點擊時把分類的 ID 當作參數傳過去
-              onClick={() => onNavigate('products', undefined, category.id)}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          SEARCH BAR — white strip below hero
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <RevealSection>
+        <div className="w-full bg-white border-b border-gray-100">
+          <form
+            onSubmit={handleSearch}
+            className="max-w-2xl mx-auto px-6 py-5 flex items-center gap-3"
+          >
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                placeholder="搜尋商品關鍵字..."
+                className="w-full pl-11 pr-4 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              className="h-11 px-7 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-700 active:scale-95 transition-all duration-200"
             >
-              <CardContent className="p-6 text-center">
-                <div className="font-medium">{category.name}</div>
-              </CardContent>
-            </Card>
+              搜尋
+            </button>
+          </form>
+        </div>
+      </RevealSection>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          CATEGORY IMAGE GRID
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <section className="max-w-7xl mx-auto w-full px-6 sm:px-10 pt-20 pb-10">
+        <RevealSection>
+          <div className="flex items-end justify-between mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">瀏覽分類</h2>
+            <button
+              onClick={() => onNavigate("products")}
+              className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-900 transition-colors duration-200"
+            >
+              查看全部 <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </RevealSection>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {categories.map((cat, i) => (
+            <RevealGridItem
+              key={cat.id}
+              index={i}
+              onClick={() => onNavigate("products", undefined, cat.id)}
+              className="group cursor-pointer"
+            >
+              {/* Square image card */}
+              <div className="relative aspect-square rounded-2xl overflow-hidden mb-3 bg-gray-100">
+                <img
+                  src={cat.img}
+                  alt={cat.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+                {/* Scrim */}
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/35 transition-colors duration-300" />
+                {/* Icon fallback — center */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <cat.Icon className="w-8 h-8 text-white/80" />
+                </div>
+                {/* "來去逛逛" CTA */}
+                <span className="absolute bottom-3 right-3 flex items-center gap-1 text-white/0 group-hover:text-white/90 text-[10px] font-medium tracking-wide transition-all duration-300">
+                  逛逛 <MoveRight className="w-3 h-3" />
+                </span>
+              </div>
+
+              {/* Bracketed label below card */}
+              <p className="text-xs font-medium text-gray-500 group-hover:text-gray-900 tracking-wide text-center transition-colors duration-200">
+                {cat.bracketName}
+              </p>
+            </RevealGridItem>
           ))}
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-1">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold">最新上架</h2>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          LATEST PRODUCTS
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <section className="max-w-7xl mx-auto w-full px-6 sm:px-10 pt-16 pb-28">
+        <RevealSection>
+          <div className="flex items-end justify-between mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">最新上架</h2>
+            <button
+              onClick={() => onNavigate("products")}
+              className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-900 transition-colors duration-200"
+            >
+              查看全部 <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-        </div>
+        </RevealSection>
 
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">載入商品中...</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i}>
+                <div className="aspect-square rounded-2xl bg-gray-100 animate-pulse mb-4" />
+                <div className="h-3 rounded bg-gray-100 w-2/3 mb-2 animate-pulse" />
+                <div className="h-3 rounded bg-gray-100 w-1/3 animate-pulse" />
+              </div>
+            ))}
+          </div>
         ) : latestProducts.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">目前還沒有人刊登商品喔</div>
+          <div className="flex flex-col items-center justify-center py-28 text-gray-300">
+            <p className="text-sm">目前還沒有人刊登商品喔</p>
+          </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {latestProducts.map((product) => {
-                const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
+              {latestProducts.map((product, i) => {
+                const cond = conditionConfig[product.condition] ?? { label: "未知" };
+                const isFav = userFavorites.includes(product.id);
+                const isDelisted = product.status === "已下架";
 
                 return (
-                  <Card
+                  <RevealGridItem
                     key={product.id}
-                    className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
+                    index={i}
                     onClick={() => handleProductClick(product)}
+                    className={`group cursor-pointer ${isDelisted ? "opacity-50" : ""}`}
                   >
-                    <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                    {/* Image card */}
+                    <div className="relative aspect-square rounded-2xl bg-gray-50 overflow-hidden mb-4 group-hover:-translate-y-1 group-hover:shadow-lg transition-all duration-300">
                       <ImageWithFallback
                         src={product.images?.[0] || ""}
                         alt={product.title}
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
+                        className={`w-full h-full object-contain p-6 transition-transform duration-500 ease-out group-hover:scale-105 ${isDelisted ? "grayscale" : ""}`}
                       />
-
+                      {isDelisted && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-xs font-medium text-gray-500 bg-white/80 px-3 py-1 rounded-full">
+                            已下架
+                          </span>
+                        </div>
+                      )}
                       <button
-                        className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
-                          ? 'bg-red-50 text-red-500'
-                          : 'bg-white/80 hover:bg-white text-neutral-600'
+                        onClick={e => handleToggleFavorite(e, product)}
+                        className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-all duration-200
+                          ${isFav
+                            ? "bg-red-50 text-red-400 opacity-100"
+                            : "opacity-0 group-hover:opacity-100 bg-white/80 text-gray-400 hover:text-red-400"
                           }`}
-                        onClick={(e) => handleToggleFavorite(e, product)}
                       >
-                        <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
+                        <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-current" : ""}`} />
                       </button>
                     </div>
-                    <CardContent className="p-4">
-                      <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
+
+                    {/* Info below card */}
+                    <div>
+                      <p className={`text-sm font-medium text-gray-900 truncate mb-1 ${isDelisted ? "line-through text-gray-400" : ""}`}>
                         {product.title}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-500">NT${Number(product.price).toLocaleString()}</p>
+                        <span className="text-[10px] text-gray-400 font-medium">{cond.label}</span>
                       </div>
-                      <div className="mb-3 font-bold text-lg text-primary">
-                        NT${Number(product.price).toLocaleString()}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className={`rounded-full text-[10px] font-medium border-none shadow-none hover:opacity-80 ${conditionData.color}`}>
-                          {conditionData.label}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </RevealGridItem>
                 );
               })}
             </div>
 
-            <div className="mt-12 text-center">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => onNavigate('products')}
-                className="rounded-full px-10 h-14 text-lg font-medium border-neutral-200 hover:bg-white hover:border-primary hover:text-primary transition-all shadow-sm"
+            <RevealSection className="mt-16 text-center">
+              <button
+                onClick={() => onNavigate("products")}
+                className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 border border-gray-200 px-10 py-3.5 rounded-full hover:border-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-300"
               >
-                查看更多商品
-                <ChevronRight className="ml-2 w-5 h-5" />
-              </Button>
-            </div>
+                查看更多商品 <ChevronRight className="w-4 h-4" />
+              </button>
+            </RevealSection>
           </>
         )}
       </section>
 
-      <footer className="border-t border-border bg-white mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-sm text-muted-foreground text-center">© 二手好物市集管理平台</p>
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          FOOTER
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <footer className="border-t border-gray-100 bg-white mt-auto">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">二手好物市集</p>
+          <p className="text-xs text-gray-400">© 2026 二手好物市集管理平台．All rights reserved.</p>
         </div>
       </footer>
 
       <LoginPromptDialog
         open={showLoginPrompt}
         onOpenChange={setShowLoginPrompt}
-        onConfirm={() => {
-          setShowLoginPrompt(false);
-          onNavigate('login');
-        }}
+        onConfirm={() => { setShowLoginPrompt(false); onNavigate("login"); }}
         description="登入後即可收藏您心儀的商品！"
       />
     </div>

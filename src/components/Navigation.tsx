@@ -45,7 +45,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
   };
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border shadow-sm bg-custom-purple">
+    <nav className="absolute top-0 z-50 w-full bg-custom-purple">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
@@ -167,7 +167,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
 
       {/* 手機版下拉選單內容 */}
       {isMenuOpen && (
-        <div className="md:hidden border-t border-black/5 pb-4 bg-custom-purple">
+        <div className="md:hidden border-t border-black/5 pb-4 bg-mobile-menu">
           <div className="flex flex-col gap-2 px-4 pt-4">
             <Button
               variant={currentPage === 'home' ? 'secondary' : 'ghost'}
