@@ -65,6 +65,8 @@ export default function App() {
   const [searchKeyword, setSearchKeyword] = useState("");
   // 🌟 新增：用來記住使用者真實上傳的相片網址
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  // 🌟 新增：專門用來記住進入刊登頁面的「真正起點」
+  const [postOrigin, setPostOrigin] = useState<PageType>('home');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -88,6 +90,11 @@ export default function App() {
   }, []);
 
   const handleNavigate = (page: string, productId?: string, searchQuery?: string) => {
+    // 🌟 新增邏輯：如果準備要去刊登頁 (post)，而且「不是」從 AI 相關頁面退回來的，就記住現在的頁面當起點！
+    if (page === 'post' && !['ai-camera', 'ai-processing', 'ai-confirmation'].includes(currentPage)) {
+      setPostOrigin(currentPage);
+    }
+
     setPreviousPage(currentPage);
     setCurrentPage(page as PageType);
 
@@ -227,7 +234,7 @@ export default function App() {
         <PostItemPage
           onNavigate={handleNavigate}
           aiGeneratedData={aiGeneratedData}
-          previousPage={previousPage}
+          previousPage={postOrigin} // 🌟 這裡改成傳入我們記住的「真正起點」
         />
       )}
 
@@ -273,6 +280,12 @@ export default function App() {
         <AIConfirmationPage
           onNavigate={handleNavigate}
           productData={aiGeneratedData}
+          onSkip={() => {
+            // 🌟 1. 清空這包惱人的 AI 資料，只保留相片 (如果你連相片都不要，就把 {} 變成 null)
+            setAiGeneratedData({ image: aiGeneratedData.image }); 
+            // 🌟 2. 跳轉回刊登頁
+            handleNavigate('post');
+          }}
         />
       )}
       
