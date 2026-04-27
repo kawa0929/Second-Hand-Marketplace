@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
     ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, 
-    CheckCircle2, Smartphone, ExternalLink, Home, FileText 
+    CheckCircle2, Smartphone, ExternalLink, Home, FileText, User
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -9,168 +9,82 @@ import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 interface CheckoutPageProps {
-    // 🌟 修改：讓 onNavigate 可以接收第二個參數 (商品ID)
-    onNavigate: (page: string, productId?: string) => void;
-    productId?: string | null;
+    onNavigate: (page: string, data?: any) => void;
 }
 
-export function CheckoutPage({ onNavigate, productId }: CheckoutPageProps) {
+export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
-    const [product, setProduct] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    
+    const [checkoutItems] = useState<any[]>(() => {
+        try {
+            const savedData = localStorage.getItem('checkout_items');
+            return savedData ? JSON.parse(savedData) : [];
+        } catch { return []; }
+    });
 
     const [deliveryMethod, setDeliveryMethod] = useState("711");
     const [paymentMethod, setPaymentMethod] = useState("credit_card");
-    const [receiver, setReceiver] = useState({ name: "", phone: "", city: "", address: "", cardNumber: "" });
+    const [receiver, setReceiver] = useState({ name: "", phone: "", address: "", cardNumber: "" });
 
-    const cityOptions = ['基隆市', '台北市', '新北市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '台南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '台東縣', '澎湖縣', '金門縣', '連江縣'];
+    const groupedItems = checkoutItems.reduce((acc: any, item: any) => {
+        const sellerName = item.seller || "個人賣家";
+        if (!acc[sellerName]) acc[sellerName] = [];
+        acc[sellerName].push(item);
+        return acc;
+    }, {});
 
-    const paymentOptions = [
-        { id: 'credit_card', label: '信用卡', icon: CreditCard, desc: '線上刷卡最方便' },
-        { id: 'cod', label: '貨到付款', icon: Wallet, desc: '取貨時付款即可' },
-        { id: 'jkopay', label: '街口支付', icon: Smartphone, desc: '電子支付' },
-        { id: 'linepay', label: 'LINE Pay', icon: Smartphone, desc: '電子支付' },
-        { id: 'easywallet', label: '悠遊付', icon: Smartphone, desc: '電子支付' },
-        { id: 'pxpay', label: '全支付', icon: Smartphone, desc: '電子支付' },
-    ];
-
-    useEffect(() => {
-        if (productId) {
-            fetch(`http://localhost:3001/api/product/${productId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        setProduct(data.product);
-                    } else {
-                        toast.error("讀取商品資料失敗");
-                    }
-                    setIsLoading(false);
-                })
-                .catch(err => {
-                    console.error("連線錯誤", err);
-                    setIsLoading(false);
-                });
-        } else {
-            setIsLoading(false);
-        }
-    }, [productId]);
-
-    if (isLoading) {
-        return <div className="min-h-screen bg-neutral-50 flex items-center justify-center">載入結帳資訊中...</div>;
-    }
-
-    if (!product) {
-        return (
-            <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center">
-                <div className="text-xl font-bold mb-4">無法取得商品資訊</div>
-                <Button onClick={() => onNavigate('home')}>回首頁</Button>
-            </div>
-        );
-    }
-
-    const itemPrice = Number(product.price) || 0;
-    const itemTotal = itemPrice * 1;
+    const itemTotal = checkoutItems.reduce((sum, item) => sum + (Number(item.price || 0) * (item.quantity || 1)), 0);
     const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
-    const mockOrderNumber = `ORD${Math.floor(Math.random() * 100000000).toString().padStart(8, '0')}`;
-    const displayImage = product.images?.[0] || product.image || product.imageUrl || "https://via.placeholder.com/500";
 
+    // 🌟 核心：嚴格格式驗證邏輯
     const handleCheckoutSubmit = () => {
-        if (!receiver.name || !receiver.phone || !receiver.address) {
-            toast.error("請填寫完整的收件人基本資訊喔！");
-            return;
-        }
-        if (deliveryMethod === "home" && !receiver.city) {
-            toast.error("宅配請記得選擇縣市！");
-            return;
-        }
-        if (paymentMethod === "credit_card" && !receiver.cardNumber) {
-            toast.error("請輸入信用卡卡號！");
+        const { name, phone, address, cardNumber } = receiver;
+
+        // 1. 姓名驗證 (至少2個字)
+        if (name.trim().length < 2) {
+            toast.error("姓名格式錯誤：請輸入真實姓名（至少2個字）");
             return;
         }
 
-        if (paymentMethod === 'credit_card' || paymentMethod === 'cod') {
-            toast.success("🎉 訂單已建立！");
-            setCheckoutStep('success');
-        } else {
-            setCheckoutStep('redirect');
+        // 2. 電話驗證 (正規表示式：09開頭且後接8位數字，共10位)
+        const phoneRegex = /^09\d{8}$/;
+        if (!phoneRegex.test(phone)) {
+            toast.error("電話格式錯誤：須為 09 開頭的 10 位數字（例如 0912345678）");
+            return;
         }
+
+        // 3. 地址驗證 (至少5個字)
+        if (address.trim().length < 5) {
+            toast.error("地址或門市資訊過短：請填寫詳細且完整的取貨資訊");
+            return;
+        }
+
+        // 4. 信用卡驗證 (如果選擇信用卡)
+        if (paymentMethod === 'credit_card') {
+            const cardRegex = /^\d{16}$/;
+            if (!cardRegex.test(cardNumber)) {
+                toast.error("卡號格式錯誤：信用卡號須為 16 位純數字");
+                return;
+            }
+        }
+
+        // 通過驗證後執行
+        toast.success("🎉 資料格式正確，訂單已建立！");
+        localStorage.removeItem('checkout_items');
+        setCheckoutStep('success');
     };
-
-    if (checkoutStep === 'redirect') {
-        return (
-            <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-border max-w-sm w-full text-center space-y-6">
-                    <div className="flex justify-center">
-                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Smartphone className="w-10 h-10 text-primary" />
-                        </div>
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold mb-3">準備前往第三方支付</h2>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                            您選擇了電子支付方式。<br/>
-                            請點擊下方按鈕，系統將引導您至對應的支付平台完成扣款手續。
-                        </p>
-                    </div>
-                    <Button 
-                        className="w-full rounded-xl py-6 text-base font-bold flex items-center justify-center gap-2" 
-                        onClick={() => {
-                            toast.success("付款完成！");
-                            setCheckoutStep('success');
-                        }}
-                    >
-                        立即前往 <ExternalLink className="w-5 h-5" />
-                    </Button>
-                    <button 
-                        className="text-sm text-muted-foreground hover:text-primary transition-colors mt-4"
-                        onClick={() => setCheckoutStep('form')}
-                    >
-                        返回重選付款方式
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     if (checkoutStep === 'success') {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
-                <Card className="max-w-md w-full rounded-2xl border-border shadow-sm text-center overflow-hidden">
-                    <div className="bg-green-500 py-8 flex justify-center">
-                        <CheckCircle2 className="w-20 h-20 text-white" />
-                    </div>
+                <Card className="max-w-sm w-full rounded-2xl border-none shadow-sm text-center overflow-hidden">
+                    <div className="bg-green-500 py-8 flex justify-center"><CheckCircle2 className="w-16 h-16 text-white" /></div>
                     <CardContent className="p-8 space-y-6">
-                        <div>
-                            <h1 className="text-2xl font-bold mb-2">訂單建立成功！</h1>
-                            <p className="text-muted-foreground text-sm">
-                                感謝您的購買，賣家將會盡快為您安排出貨。
-                            </p>
-                        </div>
-                        <div className="bg-neutral-50 p-4 rounded-xl text-left border border-neutral-100">
-                            <div className="flex justify-between items-center text-sm mb-2">
-                                <span className="text-muted-foreground">訂單編號</span>
-                                <span className="font-mono font-medium">{mockOrderNumber}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">付款狀態</span>
-                                <span className="text-green-600 font-bold">已完成 / 等待付款</span>
-                            </div>
-                        </div>
-                        <div className="flex gap-3 pt-2">
-                            <Button 
-                                variant="outline" 
-                                className="flex-1 rounded-xl"
-                                onClick={() => onNavigate('home')} 
-                            >
-                                <Home className="w-4 h-4 mr-2" /> 回首頁
-                            </Button>
-                            <Button 
-                                className="flex-1 rounded-xl font-bold"
-                                onClick={() => onNavigate('transactions')} 
-                            >
-                                <FileText className="w-4 h-4 mr-2" /> 查看訂單
-                            </Button>
+                        <h1 className="text-xl font-bold">訂單建立成功！</h1>
+                        <div className="flex flex-col gap-2">
+                            <Button className="w-full rounded-xl font-bold py-5" onClick={() => onNavigate('transactions')}>查看訂單</Button>
+                            <Button variant="ghost" className="w-full" onClick={() => onNavigate('home')}>回首頁</Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -179,113 +93,119 @@ export function CheckoutPage({ onNavigate, productId }: CheckoutPageProps) {
     }
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-20">
-            <div className="bg-white border-b border-border sticky top-0 z-10">
-                <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-4">
-                    {/* 🌟 核心修改 1：點擊返回按鈕時，帶上商品 ID 回到商品詳細頁面 */}
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-full" 
-                        onClick={() => onNavigate('product-detail', productId || undefined)}
-                    >
-                        <ArrowLeft className="w-5 h-5" />
+        <div className="min-h-screen bg-[#F9FAFB] pb-10">
+            <div className="bg-white border-b border-neutral-100 sticky top-0 z-10 h-14 flex items-center">
+                <div className="max-w-6xl mx-auto px-4 w-full flex items-center gap-3">
+                    <Button variant="ghost" size="icon" className="rounded-full w-8 h-8" onClick={() => onNavigate('cart')}>
+                        <ArrowLeft className="w-4 h-4" />
                     </Button>
-                    <h1 className="text-xl font-bold">結帳</h1>
+                    <h1 className="text-lg font-bold text-neutral-800">結帳</h1>
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <Card className="rounded-2xl border-border shadow-sm">
+            <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-5">
+                    
+                    {/* 物流選擇 */}
+                    <Card className="rounded-2xl border-none shadow-sm bg-white">
                         <CardContent className="p-6">
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <Truck className="w-5 h-5 text-primary" /> 選擇物流方式 <span className="text-red-500">*</span>
+                            <h2 className="text-sm font-bold mb-4 flex items-center gap-1 text-neutral-600">
+                                <Truck className="w-4 h-4" /> 選擇物流方式 <span className="text-red-500 font-bold ml-1 text-lg">*</span>
                             </h2>
-                            <div className="flex overflow-x-auto gap-4 pb-2 snap-x">
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                 {[
-                                    { id: '711', label: '7-11 取貨', icon: Store, fee: 60 },
-                                    { id: 'family', label: '全家取貨', icon: Store, fee: 60 },
-                                    { id: 'hilife', label: '萊爾富取貨', icon: Store, fee: 60 },
-                                    { id: 'home', label: '宅配到府', icon: Truck, fee: 100 }
-                                ].map((method) => (
+                                    { id: '711', label: '7-11', icon: Store, fee: 60 },
+                                    { id: 'family', label: '全家', icon: Store, fee: 60 },
+                                    { id: 'hilife', label: '萊爾富', icon: Store, fee: 60 },
+                                    { id: 'home', label: '宅配', icon: Truck, fee: 100 }
+                                ].map((m) => (
                                     <div
-                                        key={method.id}
-                                        className={`flex-shrink-0 w-[200px] snap-center p-4 rounded-xl border-2 cursor-pointer transition-all ${deliveryMethod === method.id ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
-                                        onClick={() => setDeliveryMethod(method.id)}
+                                        key={m.id}
+                                        className={`flex-shrink-0 w-36 p-4 rounded-xl border-2 transition-all cursor-pointer ${deliveryMethod === m.id ? 'border-[#333] bg-neutral-50 shadow-sm' : 'border-neutral-100 hover:border-neutral-200'}`}
+                                        onClick={() => setDeliveryMethod(m.id)}
                                     >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2 font-bold whitespace-nowrap">
-                                                <method.icon className="w-4 h-4" /> {method.label}
-                                            </div>
-                                            {deliveryMethod === method.id && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />}
+                                        <div className="flex justify-between items-center mb-2 text-sm font-bold">
+                                            <div className="flex items-center gap-1.5"><m.icon className="w-3.5 h-3.5" /> {m.label}</div>
+                                            {deliveryMethod === m.id && <CheckCircle2 className="w-4 h-4 text-[#333]" />}
                                         </div>
-                                        <div className="text-sm text-muted-foreground">運費 NT${method.fee}</div>
+                                        <div className="text-[11px] text-neutral-500">運費 NT${m.fee}</div>
                                     </div>
                                 ))}
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="rounded-2xl border-border shadow-sm">
+                    {/* 付款方式 */}
+                    <Card className="rounded-2xl border-none shadow-sm bg-white">
                         <CardContent className="p-6">
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <CreditCard className="w-5 h-5 text-primary" /> 選擇付款方式 <span className="text-red-500">*</span>
+                            <h2 className="text-sm font-bold mb-4 flex items-center gap-1 text-neutral-600">
+                                <CreditCard className="w-4 h-4" /> 選擇付款方式 <span className="text-red-500 font-bold ml-1 text-lg">*</span>
                             </h2>
-                            <div className="flex overflow-x-auto gap-4 pb-2 snap-x">
-                                {paymentOptions.map((option) => (
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {[
+                                    { id: 'credit_card', label: '信用卡', desc: '線上刷卡最方便' },
+                                    { id: 'cod', label: '貨到付款', desc: '取貨時付款即可' },
+                                    { id: 'linepay', label: 'LINE Pay', desc: '快速條碼支付' },
+                                    { id: 'jkopay', label: '街口支付', desc: '支援街口幣折抵' },
+                                    { id: 'easywallet', label: '悠遊付', desc: '悠遊卡支付' },
+                                    { id: 'pxpay', label: '全支付', desc: '全聯跨通路支付' },
+                                ].map((p) => (
                                     <div
-                                        key={option.id}
-                                        className={`flex-shrink-0 w-[200px] snap-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === option.id ? 'border-primary bg-primary/5' : 'border-neutral-200 hover:border-primary/50'}`}
-                                        onClick={() => setPaymentMethod(option.id)}
+                                        key={p.id}
+                                        className={`flex-shrink-0 w-36 p-4 rounded-xl border-2 transition-all cursor-pointer ${paymentMethod === p.id ? 'border-[#333] bg-neutral-50 shadow-sm' : 'border-neutral-100 hover:border-neutral-200'}`}
+                                        onClick={() => setPaymentMethod(p.id)}
                                     >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2 font-bold whitespace-nowrap text-sm">
-                                                <option.icon className="w-4 h-4" /> {option.label}
-                                            </div>
-                                            {paymentMethod === option.id && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />}
+                                        <div className="flex justify-between items-center mb-1 text-sm font-bold">
+                                            <span>{p.label}</span>
+                                            {paymentMethod === p.id && <CheckCircle2 className="w-4 h-4 text-[#333]" />}
                                         </div>
-                                        <div className="text-sm text-muted-foreground">{option.desc}</div>
+                                        <div className="text-[10px] text-neutral-400">{p.desc}</div>
                                     </div>
                                 ))}
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="rounded-2xl border-border shadow-sm">
+                    {/* 收件資訊 - 硬性格式校驗 */}
+                    <Card className="rounded-2xl border-none shadow-sm bg-white">
                         <CardContent className="p-6">
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <MapPin className="w-5 h-5 text-primary" /> 收件資訊
+                            <h2 className="text-sm font-bold mb-5 flex items-center gap-1 text-neutral-600">
+                                <MapPin className="w-4 h-4" /> 收件資訊
                             </h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">收件人姓名 <span className="text-red-500">*</span></label>
-                                    <input type="text" className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="請輸入真實姓名" value={receiver.name} onChange={(e) => setReceiver({ ...receiver, name: e.target.value })} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-neutral-500 uppercase">
+                                        收件人姓名 <span className="text-red-500 font-bold ml-0.5">*</span>
+                                    </label>
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="姓名" value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">聯絡電話 <span className="text-red-500">*</span></label>
-                                    <input type="text" className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="例如: 0912345678" value={receiver.phone} onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })} />
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-neutral-500 uppercase">
+                                        聯絡電話 <span className="text-red-500 font-bold ml-0.5">*</span>
+                                    </label>
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="09xx-xxx-xxx" value={receiver.phone} onChange={e => setReceiver({...receiver, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
                                 </div>
-
-                                {deliveryMethod === 'home' && (
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">縣市 <span className="text-red-500">*</span></label>
-                                        <select className="w-full p-3 rounded-xl border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary/50" value={receiver.city} onChange={(e) => setReceiver({ ...receiver, city: e.target.value })}>
-                                            <option value="">請選擇縣市</option>
-                                            {cityOptions.map(city => <option key={city} value={city}>{city}</option>)}
-                                        </select>
-                                    </div>
-                                )}
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">{deliveryMethod === 'home' ? '詳細地址' : '取貨門市'} <span className="text-red-500">*</span></label>
-                                    <input type="text" className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={deliveryMethod === 'home' ? '請輸入區、街道、巷弄、樓層' : '請輸入門市名稱或店號'} value={receiver.address} onChange={(e) => setReceiver({ ...receiver, address: e.target.value })} />
+                                <div className="md:col-span-2 space-y-1.5">
+                                    <label className="text-xs font-bold text-neutral-500 uppercase">
+                                        詳細收件地址 / 門市名稱 <span className="text-red-500 font-bold ml-0.5">*</span>
+                                    </label>
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="地址或取貨店名" value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} />
                                 </div>
 
                                 {paymentMethod === 'credit_card' && (
-                                    <div className="pt-4 mt-4 border-t border-neutral-100">
-                                        <label className="block text-sm font-medium mb-1">信用卡卡號 <span className="text-red-500">*</span></label>
-                                        <input type="text" maxLength={16} className="w-full p-3 rounded-xl border border-primary/40 bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono tracking-widest" placeholder="請輸入 16 碼信用卡號" value={receiver.cardNumber} onChange={(e) => setReceiver({ ...receiver, cardNumber: e.target.value.replace(/\D/g, '') })} />
+                                    <div className="md:col-span-2 pt-2 animate-in fade-in slide-in-from-top-1">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-neutral-500 uppercase">
+                                                信用卡卡號 <span className="text-red-500 font-bold ml-0.5">*</span>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full p-2.5 rounded-lg bg-primary/5 border border-primary/20 outline-none focus:border-primary/40 font-mono text-sm tracking-widest" 
+                                                placeholder="16 碼卡號" 
+                                                value={receiver.cardNumber} 
+                                                onChange={e => setReceiver({...receiver, cardNumber: e.target.value.replace(/\D/g, '').slice(0, 16)})} 
+                                            />
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -293,37 +213,50 @@ export function CheckoutPage({ onNavigate, productId }: CheckoutPageProps) {
                     </Card>
                 </div>
 
-                <div>
-                    <Card className="rounded-2xl border-border shadow-sm sticky top-24">
+                {/* 右側：摘要 */}
+                <div className="lg:col-span-1">
+                    <Card className="rounded-2xl border-none shadow-sm bg-white sticky top-20 overflow-hidden">
                         <CardContent className="p-6">
-                            <h2 className="text-lg font-bold mb-4">訂單摘要</h2>
-                            <div className="flex gap-4 mb-6 pb-6 border-b border-neutral-100">
-                                <div className="w-16 h-16 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0">
-                                    <ImageWithFallback src={displayImage} alt="商品圖" className="w-full h-full object-cover" />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="text-sm font-medium line-clamp-2 mb-1">{product.title || product.name}</div>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <span className="text-sm font-bold text-primary">NT${itemPrice.toLocaleString()}</span>
-                                        <span className="text-xs text-muted-foreground">x1</span>
+                            <h2 className="text-base font-bold mb-5 flex items-center gap-2 text-neutral-400">
+                                <FileText className="w-4 h-4" /> 訂單摘要
+                            </h2>
+                            <div className="space-y-4 mb-6 max-h-[220px] overflow-y-auto pr-1">
+                                {Object.keys(groupedItems).map((seller) => (
+                                    <div key={seller} className="space-y-2">
+                                        <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 font-bold uppercase tracking-tight">
+                                            <User className="w-2.5 h-2.5" /> {seller}
+                                        </div>
+                                        {groupedItems[seller].map((item: any, idx: number) => (
+                                            <div key={idx} className="flex gap-3 bg-neutral-50/50 p-2 rounded-lg">
+                                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-neutral-100">
+                                                    <ImageWithFallback src={item.image} alt="圖" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex-1 min-w-0 py-0.5">
+                                                    <div className="font-bold text-neutral-800 truncate text-[11px]">{item.title}</div>
+                                                    <div className="flex justify-between items-center mt-1">
+                                                        <span className="text-neutral-500 text-[10px]">NT${Number(item.price).toLocaleString()}</span>
+                                                        <span className="text-neutral-400 text-[10px]">x{item.quantity || 1}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
+                                ))}
+                            </div>
+
+                            <div className="space-y-2 pt-4 border-t border-neutral-50 text-[11px]">
+                                <div className="flex justify-between text-neutral-400"><span>商品總計</span><span>NT${itemTotal.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-neutral-400"><span>運費</span><span>NT${shippingFee}</span></div>
+                                <div className="flex justify-between font-bold text-base pt-2 text-neutral-800 border-t border-dashed">
+                                    <span>總計</span>
+                                    <span className="text-primary font-black">NT${orderTotal.toLocaleString()}</span>
                                 </div>
                             </div>
-                            <div className="space-y-3 text-sm mb-6">
-                                <div className="flex justify-between text-muted-foreground">
-                                    <span>商品總計 (1 件)</span>
-                                    <span>NT${itemTotal.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between text-muted-foreground">
-                                    <span>運費 ({deliveryMethod === 'home' ? '宅配' : '超商'})</span>
-                                    <span>NT${shippingFee}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-lg pt-3 border-t border-neutral-100">
-                                    <span>結帳總金額</span>
-                                    <span className="text-primary">NT${orderTotal.toLocaleString()}</span>
-                                </div>
-                            </div>
-                            <Button className="w-full rounded-full py-6 text-base font-bold" onClick={handleCheckoutSubmit}>
+                            
+                            <Button 
+                                className="w-full mt-6 rounded-xl py-5 text-sm font-bold bg-[#333] hover:bg-black text-white shadow-sm transition-all" 
+                                onClick={handleCheckoutSubmit}
+                            >
                                 確認送出訂單
                             </Button>
                         </CardContent>
