@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
     ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, 
     CheckCircle2, Smartphone, ExternalLink, Home, FileText 
@@ -9,33 +9,22 @@ import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 interface CheckoutPageProps {
-    onNavigate: (page: string) => void;
+    // 🌟 修改：讓 onNavigate 可以接收第二個參數 (商品ID)
+    onNavigate: (page: string, productId?: string) => void;
+    productId?: string | null;
 }
 
-export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
-    // 控制目前畫面顯示哪一個步驟：'form' (填寫表單), 'redirect' (付款跳轉), 'success' (結帳成功)
+export function CheckoutPage({ onNavigate, productId }: CheckoutPageProps) {
     const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
+    const [product, setProduct] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // 模擬購物車傳過來的商品資料
-    const mockCartItem = {
-        id: "item-1",
-        title: "Peppa Pig 粉紅豬小妹佩佩豬喬治絨毛娃娃玩偶抱枕物款",
-        variant: "喬治款",
-        price: 150,
-        quantity: 1,
-        image: "https://images.unsplash.com/photo-1559805906-81a94127598c?w=500&q=80"
-    };
-
-    const [deliveryMethod, setDeliveryMethod] = useState("711"); // 預設 7-11
-    const [paymentMethod, setPaymentMethod] = useState("credit_card"); // 預設改為信用卡
-    
-    // 表單狀態
+    const [deliveryMethod, setDeliveryMethod] = useState("711");
+    const [paymentMethod, setPaymentMethod] = useState("credit_card");
     const [receiver, setReceiver] = useState({ name: "", phone: "", city: "", address: "", cardNumber: "" });
 
-    // 台灣縣市假資料 (宅配選單用)
     const cityOptions = ['基隆市', '台北市', '新北市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '台南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '台東縣', '澎湖縣', '金門縣', '連江縣'];
 
-    // 付款方式清單 (刪除了 iPASS、icash、全盈+PAY)
     const paymentOptions = [
         { id: 'credit_card', label: '信用卡', icon: CreditCard, desc: '線上刷卡最方便' },
         { id: 'cod', label: '貨到付款', icon: Wallet, desc: '取貨時付款即可' },
@@ -45,17 +34,48 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         { id: 'pxpay', label: '全支付', icon: Smartphone, desc: '電子支付' },
     ];
 
-    // 計算金額
-    const itemTotal = mockCartItem.price * mockCartItem.quantity;
+    useEffect(() => {
+        if (productId) {
+            fetch(`http://localhost:3001/api/product/${productId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        setProduct(data.product);
+                    } else {
+                        toast.error("讀取商品資料失敗");
+                    }
+                    setIsLoading(false);
+                })
+                .catch(err => {
+                    console.error("連線錯誤", err);
+                    setIsLoading(false);
+                });
+        } else {
+            setIsLoading(false);
+        }
+    }, [productId]);
+
+    if (isLoading) {
+        return <div className="min-h-screen bg-neutral-50 flex items-center justify-center">載入結帳資訊中...</div>;
+    }
+
+    if (!product) {
+        return (
+            <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center">
+                <div className="text-xl font-bold mb-4">無法取得商品資訊</div>
+                <Button onClick={() => onNavigate('home')}>回首頁</Button>
+            </div>
+        );
+    }
+
+    const itemPrice = Number(product.price) || 0;
+    const itemTotal = itemPrice * 1;
     const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
-
-    // 隨機產生假訂單編號
     const mockOrderNumber = `ORD${Math.floor(Math.random() * 100000000).toString().padStart(8, '0')}`;
+    const displayImage = product.images?.[0] || product.image || product.imageUrl || "https://via.placeholder.com/500";
 
-    // 處理表單送出
     const handleCheckoutSubmit = () => {
-        // 驗證必填
         if (!receiver.name || !receiver.phone || !receiver.address) {
             toast.error("請填寫完整的收件人基本資訊喔！");
             return;
@@ -69,18 +89,14 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             return;
         }
 
-        // 判斷該顯示哪一個畫面
         if (paymentMethod === 'credit_card' || paymentMethod === 'cod') {
             toast.success("🎉 訂單已建立！");
-            setCheckoutStep('success'); // 直接到成功頁面
+            setCheckoutStep('success');
         } else {
-            setCheckoutStep('redirect'); // 電子支付，進入跳轉提示頁面
+            setCheckoutStep('redirect');
         }
     };
 
-    // ==========================================
-    // 畫面 2：付款跳轉提示 (電子支付專用)
-    // ==========================================
     if (checkoutStep === 'redirect') {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
@@ -101,14 +117,14 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                         className="w-full rounded-xl py-6 text-base font-bold flex items-center justify-center gap-2" 
                         onClick={() => {
                             toast.success("付款完成！");
-                            setCheckoutStep('success'); // 點擊後進入成功頁面
+                            setCheckoutStep('success');
                         }}
                     >
                         立即前往 <ExternalLink className="w-5 h-5" />
                     </Button>
                     <button 
                         className="text-sm text-muted-foreground hover:text-primary transition-colors mt-4"
-                        onClick={() => setCheckoutStep('form')} // 返回表單頁面
+                        onClick={() => setCheckoutStep('form')}
                     >
                         返回重選付款方式
                     </button>
@@ -117,9 +133,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         );
     }
 
-    // ==========================================
-    // 畫面 3：結帳成功
-    // ==========================================
     if (checkoutStep === 'success') {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
@@ -154,7 +167,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                             </Button>
                             <Button 
                                 className="flex-1 rounded-xl font-bold"
-                                // 💡 這裡修改成 'transactions' 對應你的 App.tsx 路由
                                 onClick={() => onNavigate('transactions')} 
                             >
                                 <FileText className="w-4 h-4 mr-2" /> 查看訂單
@@ -166,15 +178,17 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         );
     }
 
-    // ==========================================
-    // 畫面 1：主結帳表單 (預設顯示)
-    // ==========================================
     return (
         <div className="min-h-screen bg-neutral-50 pb-20">
-            {/* 頂部導覽 */}
             <div className="bg-white border-b border-border sticky top-0 z-10">
                 <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-4">
-                    <Button variant="ghost" size="icon" className="rounded-full" onClick={() => onNavigate('cart')}>
+                    {/* 🌟 核心修改 1：點擊返回按鈕時，帶上商品 ID 回到商品詳細頁面 */}
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="rounded-full" 
+                        onClick={() => onNavigate('product-detail', productId || undefined)}
+                    >
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <h1 className="text-xl font-bold">結帳</h1>
@@ -182,11 +196,7 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             </div>
 
             <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                {/* 左側：填寫資訊區 */}
                 <div className="lg:col-span-2 space-y-6">
-
-                    {/* 物流方式 */}
                     <Card className="rounded-2xl border-border shadow-sm">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -217,7 +227,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                         </CardContent>
                     </Card>
 
-                    {/* 付款方式 */}
                     <Card className="rounded-2xl border-border shadow-sm">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -243,7 +252,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                         </CardContent>
                     </Card>
 
-                    {/* 收件資訊 */}
                     <Card className="rounded-2xl border-border shadow-sm">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -251,77 +259,33 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                             </h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        收件人姓名 <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        placeholder="請輸入真實姓名"
-                                        value={receiver.name}
-                                        onChange={(e) => setReceiver({ ...receiver, name: e.target.value })}
-                                    />
+                                    <label className="block text-sm font-medium mb-1">收件人姓名 <span className="text-red-500">*</span></label>
+                                    <input type="text" className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="請輸入真實姓名" value={receiver.name} onChange={(e) => setReceiver({ ...receiver, name: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        聯絡電話 <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        placeholder="例如: 0912345678"
-                                        value={receiver.phone}
-                                        onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })}
-                                    />
+                                    <label className="block text-sm font-medium mb-1">聯絡電話 <span className="text-red-500">*</span></label>
+                                    <input type="text" className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="例如: 0912345678" value={receiver.phone} onChange={(e) => setReceiver({ ...receiver, phone: e.target.value })} />
                                 </div>
 
                                 {deliveryMethod === 'home' && (
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">
-                                            縣市 <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            className="w-full p-3 rounded-xl border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                            value={receiver.city}
-                                            onChange={(e) => setReceiver({ ...receiver, city: e.target.value })}
-                                        >
+                                        <label className="block text-sm font-medium mb-1">縣市 <span className="text-red-500">*</span></label>
+                                        <select className="w-full p-3 rounded-xl border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary/50" value={receiver.city} onChange={(e) => setReceiver({ ...receiver, city: e.target.value })}>
                                             <option value="">請選擇縣市</option>
-                                            {cityOptions.map(city => (
-                                                <option key={city} value={city}>{city}</option>
-                                            ))}
+                                            {cityOptions.map(city => <option key={city} value={city}>{city}</option>)}
                                         </select>
                                     </div>
                                 )}
 
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        {deliveryMethod === 'home' ? '詳細地址' : '取貨門市'} <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        placeholder={deliveryMethod === 'home' ? '請輸入區、街道、巷弄、樓層' : '請輸入門市名稱或店號'}
-                                        value={receiver.address}
-                                        onChange={(e) => setReceiver({ ...receiver, address: e.target.value })}
-                                    />
+                                    <label className="block text-sm font-medium mb-1">{deliveryMethod === 'home' ? '詳細地址' : '取貨門市'} <span className="text-red-500">*</span></label>
+                                    <input type="text" className="w-full p-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={deliveryMethod === 'home' ? '請輸入區、街道、巷弄、樓層' : '請輸入門市名稱或店號'} value={receiver.address} onChange={(e) => setReceiver({ ...receiver, address: e.target.value })} />
                                 </div>
 
                                 {paymentMethod === 'credit_card' && (
                                     <div className="pt-4 mt-4 border-t border-neutral-100">
-                                        <label className="block text-sm font-medium mb-1">
-                                            信用卡卡號 <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            maxLength={16}
-                                            className="w-full p-3 rounded-xl border border-primary/40 bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono tracking-widest"
-                                            placeholder="請輸入 16 碼信用卡號"
-                                            value={receiver.cardNumber}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '');
-                                                setReceiver({ ...receiver, cardNumber: val });
-                                            }}
-                                        />
+                                        <label className="block text-sm font-medium mb-1">信用卡卡號 <span className="text-red-500">*</span></label>
+                                        <input type="text" maxLength={16} className="w-full p-3 rounded-xl border border-primary/40 bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono tracking-widest" placeholder="請輸入 16 碼信用卡號" value={receiver.cardNumber} onChange={(e) => setReceiver({ ...receiver, cardNumber: e.target.value.replace(/\D/g, '') })} />
                                     </div>
                                 )}
                             </div>
@@ -329,28 +293,26 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                     </Card>
                 </div>
 
-                {/* 右側：訂單摘要 */}
                 <div>
                     <Card className="rounded-2xl border-border shadow-sm sticky top-24">
                         <CardContent className="p-6">
                             <h2 className="text-lg font-bold mb-4">訂單摘要</h2>
                             <div className="flex gap-4 mb-6 pb-6 border-b border-neutral-100">
                                 <div className="w-16 h-16 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0">
-                                    <ImageWithFallback src={mockCartItem.image} alt="商品圖" className="w-full h-full object-cover" />
+                                    <ImageWithFallback src={displayImage} alt="商品圖" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex-1">
-                                    <div className="text-sm font-medium line-clamp-2 mb-1">{mockCartItem.title}</div>
-                                    <div className="text-xs text-muted-foreground mb-1">規格: {mockCartItem.variant}</div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm font-bold text-primary">NT${mockCartItem.price}</span>
-                                        <span className="text-xs text-muted-foreground">x{mockCartItem.quantity}</span>
+                                    <div className="text-sm font-medium line-clamp-2 mb-1">{product.title || product.name}</div>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <span className="text-sm font-bold text-primary">NT${itemPrice.toLocaleString()}</span>
+                                        <span className="text-xs text-muted-foreground">x1</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="space-y-3 text-sm mb-6">
                                 <div className="flex justify-between text-muted-foreground">
                                     <span>商品總計 (1 件)</span>
-                                    <span>NT${itemTotal}</span>
+                                    <span>NT${itemTotal.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between text-muted-foreground">
                                     <span>運費 ({deliveryMethod === 'home' ? '宅配' : '超商'})</span>
@@ -358,7 +320,7 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                 </div>
                                 <div className="flex justify-between font-bold text-lg pt-3 border-t border-neutral-100">
                                     <span>結帳總金額</span>
-                                    <span className="text-primary">NT${orderTotal}</span>
+                                    <span className="text-primary">NT${orderTotal.toLocaleString()}</span>
                                 </div>
                             </div>
                             <Button className="w-full rounded-full py-6 text-base font-bold" onClick={handleCheckoutSubmit}>
