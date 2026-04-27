@@ -161,6 +161,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     }
   };
 
+  // ✅ 主要修改處：打包聊天需要的資訊
   const handleChatClick = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -171,6 +172,19 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
       toast.error("這是您自己刊登的商品，無法傳送訊息給自己！", { style: { background: '#f59e0b', color: '#fff', border: 'none' } });
       return;
     }
+
+    // 將賣家與商品資訊存入 localStorage，讓 ChatPage 讀取
+    const chatContext = {
+      id: product.sellerEmail, // 用賣家的 email 作為對話唯一識別碼
+      name: sellerName,
+      avatar: sellerAvatar,
+      email: product.sellerEmail,
+      product: product.title,
+      productImage: images[mainImageIndex],
+      productId: productId
+    };
+    localStorage.setItem('pendingChatContext', JSON.stringify(chatContext));
+
     onNavigate('chat');
   };
 
@@ -250,7 +264,6 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     onNavigate('checkout', productId);
   };
 
-  // 👇 這邊就是剛剛可能不小心刪掉括號的地方，我已經補好了！
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
   if (!product) return null;
 
@@ -272,7 +285,6 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* 🌟 打破迴圈的關鍵：左上角按鈕寫死強制回首頁 ('home') */}
         <Button variant="ghost" onClick={() => onNavigate('home')} className="mb-6 rounded-full">
           <ChevronLeft className="w-4 h-4 mr-2" />
           返回列表
