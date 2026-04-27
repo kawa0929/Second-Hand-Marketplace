@@ -144,6 +144,11 @@ html {
   font-size: var(--font-size);
 }
 
+/* 自訂導覽列背景色 (淺紫色) */
+.bg-custom-purple {
+  background-color: #D5C1DC;
+}
+
 /* UI 動畫設定 */
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
