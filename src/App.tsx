@@ -231,8 +231,9 @@ export default function App() {
         />
       )}
 
+      {/* 🌟 修改的地方在這裡：把 currentProductId 傳給結帳頁面 */}
       {currentPage === 'checkout' && (
-        <CheckoutPage onNavigate={handleNavigate} />
+        <CheckoutPage onNavigate={handleNavigate} productId={currentProductId} />
       )}
 
       {currentPage === 'profile' && (

@@ -26,7 +26,6 @@ const categoryMap: Record<string, string> = {
   other: "其他",
 };
 
-// 🌟 定義商品狀況與顏色對應表 (與首頁一致)
 const conditionConfig: Record<string, { label: string; color: string }> = {
   "new": { label: "全新", color: "bg-emerald-100 text-emerald-700" },
   "like-new": { label: "近全新", color: "bg-blue-100 text-blue-700" },
@@ -55,7 +54,7 @@ const formatPostDate = (dateString?: string) => {
   }
 };
 
-export function ProductDetailPage({ onNavigate, productId, previousPage = 'home' }: ProductDetailPageProps) {
+export function ProductDetailPage({ onNavigate, productId }: ProductDetailPageProps) {
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mainImageIndex, setMainImageIndex] = useState(0);
@@ -74,7 +73,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
           }
         } else {
           toast.error("找不到該商品");
-          onNavigate(previousPage);
+          onNavigate('home');
         }
       } catch (error) {
         toast.error("伺服器連線錯誤");
@@ -102,34 +101,23 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
     }
 
     if (productId) {
-      // 從 LocalStorage 拿取「已瀏覽過的商品清單」(如果沒有就給空陣列)
       const viewedProducts = JSON.parse(localStorage.getItem('viewedProducts') || '[]');
-
-      // 檢查這個商品 ID 是否已經在清單中
       if (!viewedProducts.includes(productId)) {
-
-        // 如果沒看過，發送 API 告訴後端瀏覽次數 +1
         fetch(`http://localhost:3001/api/products/${productId}/view`, {
-          method: 'POST', // 或是 PUT，看你們後端怎麼設計
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
         })
           .then(res => res.json())
           .then(data => {
             if (data.success) {
-              // 🌟 後端成功 +1 後，才把這個商品 ID 加進 LocalStorage
               viewedProducts.push(productId);
               localStorage.setItem('viewedProducts', JSON.stringify(viewedProducts));
-              console.log("瀏覽次數已更新，並記錄防刷機制！");
             }
           })
           .catch(err => console.error("更新瀏覽次數失敗:", err));
-      } else {
-        console.log("已經瀏覽過此商品，觸發防刷機制，不增加次數。");
       }
     }
-  }, [productId, onNavigate, previousPage]);
+  }, [productId, onNavigate]);
 
   const getCurrentUser = () => {
     const userStr = localStorage.getItem('user');
@@ -259,9 +247,10 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
       return;
     }
 
-    toast.info("🚀 即將推出：結帳與付款功能");
+    onNavigate('checkout', productId);
   };
 
+  // 👇 這邊就是剛剛可能不小心刪掉括號的地方，我已經補好了！
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
   if (!product) return null;
 
@@ -270,10 +259,7 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   const displayStock = selectedVariation ? selectedVariation.stock : (product.stock || 1);
 
   const displayCategory = categoryMap[product.category] || "其他";
-
-  // 🌟 獲取彩色的狀況標籤數據
   const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
-
   const images = product.images && product.images.length > 0 ? product.images : ["https://via.placeholder.com/800"];
 
   const sellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
@@ -285,7 +271,9 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Button variant="ghost" onClick={() => onNavigate(previousPage)} className="mb-6 rounded-full">
+        
+        {/* 🌟 打破迴圈的關鍵：左上角按鈕寫死強制回首頁 ('home') */}
+        <Button variant="ghost" onClick={() => onNavigate('home')} className="mb-6 rounded-full">
           <ChevronLeft className="w-4 h-4 mr-2" />
           返回列表
         </Button>
@@ -322,7 +310,6 @@ export function ProductDetailPage({ onNavigate, productId, previousPage = 'home'
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="secondary" className="rounded-full">{displayCategory}</Badge>
 
-                    {/* 🌟 這裡換成了彩色的狀況標籤 */}
                     <Badge className={`rounded-full border-none shadow-none font-medium hover:opacity-80 transition-opacity ${conditionData.color}`}>
                       {conditionData.label}
                     </Badge>
