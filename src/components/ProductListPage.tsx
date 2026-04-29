@@ -1,7 +1,4 @@
-import { Search, Heart, ChevronLeft, AlertCircle, Loader2 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { Search, Heart, ChevronLeft, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
@@ -25,22 +22,21 @@ const categoryMap: Record<string, string> = {
   other: "其他",
 };
 
-const conditionConfig: Record<string, { label: string; color: string }> = {
-  "new": { label: "全新", color: "bg-emerald-100 text-emerald-700" },
-  "like-new": { label: "近全新", color: "bg-blue-100 text-blue-700" },
-  "excellent": { label: "極佳", color: "bg-indigo-100 text-indigo-700" },
-  "good": { label: "良好", color: "bg-amber-100 text-amber-700" },
-  "fair": { label: "尚可", color: "bg-stone-200 text-stone-700" },
+const conditionConfig: Record<string, { label: string; colorClass: string }> = {
+  "new": { label: "全新", colorClass: "bg-emerald-50 text-emerald-600 border border-emerald-100" },
+  "like-new": { label: "近全新", colorClass: "bg-blue-50 text-blue-600 border border-blue-100" },
+  "excellent": { label: "極佳", colorClass: "bg-indigo-50 text-indigo-600 border border-indigo-100" },
+  "good": { label: "良好", colorClass: "bg-amber-50 text-amber-600 border border-amber-100" },
+  "fair": { label: "尚可", colorClass: "bg-stone-100 text-stone-500 border border-stone-100" },
 };
+
 
 export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListPageProps) {
   const [products, setProducts] = useState<any[]>([]);
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🌟 核心修正：判斷 initialSearch 到底是一般搜尋關鍵字，還是分類的 ID
   const isCategory = Object.keys(categoryMap).includes(initialSearch);
-
   const [searchQuery, setSearchQuery] = useState(isCategory ? "" : initialSearch);
   const [categoryFilter, setCategoryFilter] = useState(isCategory ? initialSearch : "all");
   const [sortOrder, setSortOrder] = useState("recent");
@@ -52,80 +48,49 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
       if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
       if (categoryFilter !== "all") url += `category=${categoryFilter}&`;
       url += `sort=${sortOrder}`;
-
       const res = await fetch(url);
       const data = await res.json();
-      if (data.success) {
-        setProducts(data.products);
-      }
-    } catch (error) {
-      console.error("獲取商品失敗:", error);
+      if (data.success) setProducts(data.products);
+    } catch (err) {
+      console.error("獲取商品失敗:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
   const fetchUserFavorites = async () => {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     if (!userStr) return;
     const user = JSON.parse(userStr);
     try {
       const res = await fetch(`http://localhost:3001/api/favorites/${user.email}`);
       const data = await res.json();
-      if (data.success) {
-        setUserFavorites(data.favorites.map((f: any) => f.id));
-      }
-    } catch (e) {
-      console.error("載入收藏清單失敗", e);
-    }
+      if (data.success) setUserFavorites(data.favorites.map((f: any) => f.id));
+    } catch (e) { console.error("載入收藏清單失敗", e); }
   };
 
-  useEffect(() => {
-    fetchProducts();
-    fetchUserFavorites();
-  }, [categoryFilter, sortOrder, searchQuery]);
+  useEffect(() => { fetchProducts(); fetchUserFavorites(); }, [categoryFilter, sortOrder, searchQuery]);
 
-  // 🌟 新增：當從其他頁面（如首頁）重新傳入 initialSearch 時，更新狀態
   useEffect(() => {
     const isCat = Object.keys(categoryMap).includes(initialSearch);
-    if (isCat) {
-      setCategoryFilter(initialSearch);
-      setSearchQuery("");
-    } else {
-      setSearchQuery(initialSearch);
-      setCategoryFilter("all");
-    }
+    if (isCat) { setCategoryFilter(initialSearch); setSearchQuery(""); }
+    else { setSearchQuery(initialSearch); setCategoryFilter("all"); }
   }, [initialSearch]);
 
-  const handleLocalSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchProducts();
-  };
+  const handleLocalSearch = (e: React.FormEvent) => { e.preventDefault(); fetchProducts(); };
 
   const handleToggleFavorite = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      toast.error("請先登入才能收藏喔！");
-      return;
-    }
+    const userStr = localStorage.getItem("user");
+    if (!userStr) { toast.error("請先登入才能收藏喔！"); return; }
     const user = JSON.parse(userStr);
-
-    if (product.status === '已下架') {
-      toast.error("此商品已下架，無法加入收藏喔！");
-      return;
-    }
-
-    if (user.email === product.sellerEmail) {
-      toast.error("這是您自己刊登的商品，不需要收藏啦！");
-      return;
-    }
-
+    if (product.status === "已下架") { toast.error("此商品已下架，無法加入收藏喔！"); return; }
+    if (user.email === product.sellerEmail) { toast.error("這是您自己刊登的商品，不需要收藏啦！"); return; }
     try {
-      const res = await fetch('http://localhost:3001/api/favorites/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, productId: product.id })
+      const res = await fetch("http://localhost:3001/api/favorites/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, productId: product.id }),
       });
       const data = await res.json();
       if (data.success) {
@@ -137,166 +102,188 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
           toast.success("已取消收藏");
         }
       }
-    } catch (e) {
-      toast.error("收藏操作失敗");
-    }
+    } catch { toast.error("收藏操作失敗"); }
   };
 
   const handleProductClick = (product: any) => {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     const currentUser = userStr ? JSON.parse(userStr) : null;
-
     if (product.status === "已下架") {
-      if (currentUser && currentUser.email === product.sellerEmail) {
-        onNavigate('edit-product', product.id);
-      } else {
-        toast.error("此商品目前已下架");
-      }
+      currentUser?.email === product.sellerEmail
+        ? onNavigate("edit-product", product.id)
+        : toast.error("此商品目前已下架");
     } else {
-      onNavigate('product-detail', product.id);
+      onNavigate("product-detail", product.id);
     }
   };
 
+  const resultLabel = searchQuery
+    ? `「${searchQuery}」的搜尋結果`
+    : categoryFilter !== "all"
+      ? `${categoryMap[categoryFilter]}`
+      : "所有商品";
+
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen flex flex-col bg-white text-gray-900 antialiased">
+      <div className="flex-1 max-w-7xl mx-auto w-full px-6 sm:px-10 py-10">
 
-        <Button variant="ghost" onClick={() => onNavigate('home')} className="mb-6 rounded-full -ml-2 hover:bg-neutral-200">
-          <ChevronLeft className="w-4 h-4 mr-2" /> 返回首頁
-        </Button>
+        {/* ── Back link ── */}
+        <button
+          onClick={() => onNavigate("home")}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-900 transition-colors duration-200 mb-10 -ml-1"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          返回首頁
+        </button>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">瀏覽商品</h1>
-          <p className="text-muted-foreground mt-2">探索數千件優質二手商品</p>
+        {/* ── Page heading ── */}
+        <div className="mb-10">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">瀏覽商品</h1>
+          <p className="text-gray-400 mt-2 text-sm">探索優質二手好物，找到屬於你的寶物</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 mb-6 border border-border shadow-sm">
-          <div className="flex flex-col md:flex-row gap-4">
-            <form onSubmit={handleLocalSearch} className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                placeholder="搜尋商品關鍵字..."
-                className="w-full pl-10 h-11 rounded-xl bg-neutral-50 border-0 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </form>
+        {/* ── Search + Filters ── */}
+        <div className="flex flex-col md:flex-row gap-3 mb-6">
+          {/* Search */}
+          <form onSubmit={handleLocalSearch} className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              placeholder="搜尋商品關鍵字..."
+              className="w-full pl-11 pr-4 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </form>
 
-            <div className="flex gap-2">
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
-                  <SelectValue placeholder="分類" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部分類</SelectItem>
-                  {Object.entries(categoryMap).map(([key, value]) => (
-                    <SelectItem key={key} value={key}>{value}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Category select */}
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full md:w-44 h-11 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 focus:ring-2 focus:ring-gray-300 px-4">
+              <SelectValue placeholder="分類" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border border-gray-100 shadow-lg">
+              <SelectItem value="all">全部分類</SelectItem>
+              {Object.entries(categoryMap).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger className="w-[160px] h-11 rounded-xl bg-neutral-50 border-0">
-                  <SelectValue placeholder="排序方式" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">最新上架</SelectItem>
-                  <SelectItem value="price-low">價格：低到高</SelectItem>
-                  <SelectItem value="price-high">價格：高到低</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Sort select */}
+          <Select value={sortOrder} onValueChange={setSortOrder}>
+            <SelectTrigger className="w-full md:w-44 h-11 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 focus:ring-2 focus:ring-gray-300 px-4">
+              <SelectValue placeholder="排序方式" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border border-gray-100 shadow-lg">
+              <SelectItem value="recent">最新上架</SelectItem>
+              <SelectItem value="price-low">價格：低到高</SelectItem>
+              <SelectItem value="price-high">價格：高到低</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-muted-foreground font-medium">
-            {searchQuery 
-              ? `"${searchQuery}" 的搜尋結果` 
-              : categoryFilter !== "all" 
-                ? `${categoryMap[categoryFilter]} 的商品` 
-                : "所有商品"}
-            <span className="ml-2 text-sm bg-neutral-200 px-2 py-1 rounded-full text-neutral-700">共 {products.length} 件</span>
-          </p>
+        {/* ── Result count label ── */}
+        <div className="flex items-center gap-3 mb-8">
+          <p className="text-sm font-medium text-gray-700">{resultLabel}</p>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+            共 {products.length} 件
+          </span>
         </div>
 
+        {/* ── Loading ── */}
         {isLoading ? (
-          <div className="text-center py-32 flex flex-col items-center">
-            <Loader2 className="w-10 h-10 animate-spin text-primary/40 mb-4" />
-            <p className="text-muted-foreground">正在載入商品...</p>
+          <div className="flex flex-col items-center justify-center py-40 gap-4 text-gray-300">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <p className="text-sm">正在載入商品...</p>
           </div>
+
+          /* ── Empty state ── */
         ) : products.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">找不到符合的商品，換個分類或關鍵字試試看吧！</div>
+          <div className="flex flex-col items-center justify-center py-40 text-gray-300 gap-3">
+            <p className="text-4xl">🔍</p>
+            <p className="text-sm">找不到符合的商品，換個分類或關鍵字試試看吧！</p>
+          </div>
+
+          /* ── Product grid ── */
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((product) => {
-              const conditionData = conditionConfig[product.condition] || { label: "未知", color: "bg-neutral-100 text-neutral-600" };
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
+            {products.map(product => {
+              const cond = conditionConfig[product.condition] ?? { label: "未知", color: "bg-stone-100 text-stone-500 ring-1 ring-stone-200" };
+              const isFav = userFavorites.includes(product.id);
+              const isDelisted = product.status === "已下架";
 
               return (
-                <Card
+                <div
                   key={product.id}
-                  className={`group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white ${product.status === '已下架' ? 'opacity-80' : ''}`}
                   onClick={() => handleProductClick(product)}
+                  className={`group cursor-pointer ${isDelisted ? "opacity-50" : ""}`}
                 >
-                  <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                  {/* ── Image card — identical to HomePage ── */}
+                  <div className="relative aspect-square rounded-2xl bg-gray-50 overflow-hidden mb-4 group-hover:-translate-y-1 group-hover:shadow-lg transition-all duration-300">
                     <ImageWithFallback
                       src={product.images?.[0] || ""}
                       alt={product.title}
-                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.status === '已下架' ? 'grayscale' : ''}`}
+                      className={`w-full h-full object-contain p-6 transition-transform duration-500 ease-out group-hover:scale-105 ${isDelisted ? "grayscale" : ""}`}
                     />
 
-                    <button
-                      className={`absolute top-3 right-3 w-9 h-9 backdrop-blur-sm rounded-full flex items-center justify-center transition-all shadow-sm ${userFavorites.includes(product.id)
-                        ? 'bg-red-50 text-red-500'
-                        : 'bg-white/80 hover:bg-white text-neutral-600'
-                        }`}
-                      onClick={(e) => handleToggleFavorite(e, product)}
-                    >
-                      <Heart className={`w-4 h-4 ${userFavorites.includes(product.id) ? 'fill-current' : ''}`} />
-                    </button>
-
-                    <div className="absolute top-3 left-3">
-                      <Badge variant={product.status === '已下架' ? 'outline' : 'secondary'} className={`rounded-full shadow-sm ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-500 border-none' : ''}`}>
-                        {product.status === '已下架' ? '已下架' : (categoryMap[product.category] || "其他")}
-                      </Badge>
-                    </div>
-
-                    {product.status === '已下架' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-                        <AlertCircle className="w-10 h-10 text-white/70" />
+                    {/* Delisted overlay */}
+                    {isDelisted && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xs font-medium text-gray-500 bg-white/80 px-3 py-1 rounded-full">
+                          已下架
+                        </span>
                       </div>
                     )}
+
+                    {/* Favorite button */}
+                    <button
+                      onClick={e => handleToggleFavorite(e, product)}
+                      className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-all duration-200
+                        ${isFav
+                          ? "bg-red-50 text-red-400 opacity-100"
+                          : "opacity-0 group-hover:opacity-100 bg-white/80 text-gray-400 hover:text-red-400"
+                        }`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-current" : ""}`} />
+                    </button>
                   </div>
-                  <CardContent className="p-4">
-                    <div className={`mb-1 font-medium truncate ${product.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
+
+                  {/* ── Info below card ── */}
+                  <div>
+                    <p className={`text-sm font-medium text-gray-900 truncate mb-1 ${isDelisted ? "line-through text-gray-400" : ""}`}>
                       {product.title}
-                    </div>
-                    <div className={`mb-3 font-bold text-lg ${product.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
-                      NT${Number(product.price).toLocaleString()}
-                    </div>
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <Badge className={`rounded-full text-[10px] font-medium border-none shadow-none hover:opacity-80 ${conditionData.color}`}>
-                        {conditionData.label}
-                      </Badge>
-                      <span className="text-muted-foreground truncate max-w-[100px]">
-                        {product.location || ""}
+                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm text-gray-500">
+                        NT${Number(product.price).toLocaleString()}
+                      </p>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cond.colorClass}`}>
+                        {cond.label}
                       </span>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               );
             })}
           </div>
         )}
 
+        {/* ── Load more ── */}
         {!isLoading && products.length >= 20 && (
-          <div className="text-center mt-12">
-            <Button variant="outline" size="lg" className="rounded-full">
+          <div className="mt-16 text-center">
+            <button className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 border border-gray-200 px-10 py-3.5 rounded-full hover:border-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-300">
               載入更多商品
-            </Button>
+            </button>
           </div>
         )}
       </div>
+
+      {/* ── Footer — matches HomePage exactly ── */}
+      <footer className="border-t border-gray-100 bg-white mt-auto">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">二手好物市集</p>
+          <p className="text-xs text-gray-400">© 2026 二手好物市集管理平台．All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
