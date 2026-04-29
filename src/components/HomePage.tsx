@@ -235,7 +235,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
         variants={fadeUp}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
+        viewport={{ once: false, amount: 0.3 }}
         className="w-full bg-white border-b border-gray-100"
       >
         <form
@@ -270,7 +270,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
+          viewport={{ once: false, amount: 0.3 }}
           className="flex items-end justify-between mb-10"
         >
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">瀏覽分類</h2>
@@ -331,7 +331,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
+          viewport={{ once: false, amount: 0.3 }}
           className="flex items-end justify-between mb-10"
         >
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">最新上架</h2>
@@ -363,7 +363,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
               variants={staggerContainer}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, amount: 0.05 }}
+              viewport={{ once: false, amount: 0.05 }}
               className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12"
             >
               {latestProducts.map(product => {
@@ -427,7 +427,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
               variants={fadeUp}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, amount: 0.5 }}
+              viewport={{ once: false, amount: 0.5 }}
               className="mt-16 text-center"
             >
               <button
