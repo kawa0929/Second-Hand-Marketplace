@@ -15,6 +15,7 @@ interface CheckoutPageProps {
 export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
     
+    // 讀取待結帳商品
     const [checkoutItems] = useState<any[]>(() => {
         try {
             const savedData = localStorage.getItem('checkout_items');
@@ -37,30 +38,27 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
 
-    // 🌟 核心：嚴格格式驗證邏輯
+    // 🌟 核心功能：驗證並將訂單存入交易紀錄
     const handleCheckoutSubmit = () => {
         const { name, phone, address, cardNumber } = receiver;
 
-        // 1. 姓名驗證 (至少2個字)
+        // 1. 格式驗證
         if (name.trim().length < 2) {
             toast.error("姓名格式錯誤：請輸入真實姓名（至少2個字）");
             return;
         }
 
-        // 2. 電話驗證 (正規表示式：09開頭且後接8位數字，共10位)
         const phoneRegex = /^09\d{8}$/;
         if (!phoneRegex.test(phone)) {
-            toast.error("電話格式錯誤：須為 09 開頭的 10 位數字（例如 0912345678）");
+            toast.error("電話格式錯誤：須為 09 開頭的 10 位數字");
             return;
         }
 
-        // 3. 地址驗證 (至少5個字)
         if (address.trim().length < 5) {
-            toast.error("地址或門市資訊過短：請填寫詳細且完整的取貨資訊");
+            toast.error("地址或門市資訊過短：請填寫詳細取貨資訊");
             return;
         }
 
-        // 4. 信用卡驗證 (如果選擇信用卡)
         if (paymentMethod === 'credit_card') {
             const cardRegex = /^\d{16}$/;
             if (!cardRegex.test(cardNumber)) {
@@ -69,9 +67,32 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             }
         }
 
-        // 通過驗證後執行
-        toast.success("🎉 資料格式正確，訂單已建立！");
-        localStorage.removeItem('checkout_items');
+        // 🌟 2. 打包交易資訊 (存入交易紀錄)
+        const newTransaction = {
+            id: "ORDER-" + Date.now(), // 產生唯一訂單編號
+            date: new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }),
+            items: checkoutItems, // 包含商品標題、價格、圖片、賣家
+            totalPrice: orderTotal,
+            status: "已完成", // 下單後預設為已完成
+            payment: paymentMethod === 'credit_card' ? '信用卡' : '貨到付款',
+            delivery: deliveryMethod === 'home' ? '宅配' : '超商取貨'
+        };
+
+        // 🌟 3. 讀取現有紀錄並存入 (讓交易紀錄頁面能抓到)
+        try {
+            const history = JSON.parse(localStorage.getItem('user_transactions') || '[]');
+            history.unshift(newTransaction); // 將新訂單排在最上面
+            localStorage.setItem('user_transactions', JSON.stringify(history));
+            
+            // 同時如果該商品原本在購物車，也要清空 (選配)
+            // localStorage.removeItem('cart_items'); 
+        } catch (e) {
+            console.error("儲存交易紀錄失敗", e);
+        }
+
+        // 4. 完成結帳流程
+        toast.success("🎉 訂單已成功建立！交易紀錄已更新。");
+        localStorage.removeItem('checkout_items'); // 清除結帳暫存
         setCheckoutStep('success');
     };
 
@@ -82,9 +103,10 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                     <div className="bg-green-500 py-8 flex justify-center"><CheckCircle2 className="w-16 h-16 text-white" /></div>
                     <CardContent className="p-8 space-y-6">
                         <h1 className="text-xl font-bold">訂單建立成功！</h1>
+                        <p className="text-sm text-neutral-500">您的交易紀錄已更新，您可以隨時查看進度。</p>
                         <div className="flex flex-col gap-2">
-                            <Button className="w-full rounded-xl font-bold py-5" onClick={() => onNavigate('transactions')}>查看訂單</Button>
-                            <Button variant="ghost" className="w-full" onClick={() => onNavigate('home')}>回首頁</Button>
+                            <Button className="w-full rounded-xl font-bold py-5" onClick={() => onNavigate('transactions')}>查看訂單紀錄</Button>
+                            <Button variant="ghost" className="w-full" onClick={() => onNavigate('home')}>回首頁繼續逛逛</Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -166,7 +188,7 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                         </CardContent>
                     </Card>
 
-                    {/* 收件資訊 - 硬性格式校驗 */}
+                    {/* 收件資訊 */}
                     <Card className="rounded-2xl border-none shadow-sm bg-white">
                         <CardContent className="p-6">
                             <h2 className="text-sm font-bold mb-5 flex items-center gap-1 text-neutral-600">
@@ -174,37 +196,22 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase">
-                                        收件人姓名 <span className="text-red-500 font-bold ml-0.5">*</span>
-                                    </label>
+                                    <label className="text-xs font-bold text-neutral-500 uppercase">收件人姓名 <span className="text-red-500 font-bold ml-0.5">*</span></label>
                                     <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="姓名" value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase">
-                                        聯絡電話 <span className="text-red-500 font-bold ml-0.5">*</span>
-                                    </label>
-                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="09xx-xxx-xxx" value={receiver.phone} onChange={e => setReceiver({...receiver, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
+                                    <label className="text-xs font-bold text-neutral-500 uppercase">聯絡電話 <span className="text-red-500 font-bold ml-0.5">*</span></label>
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="09xxxxxxxx" value={receiver.phone} onChange={e => setReceiver({...receiver, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
                                 </div>
                                 <div className="md:col-span-2 space-y-1.5">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase">
-                                        詳細收件地址 / 門市名稱 <span className="text-red-500 font-bold ml-0.5">*</span>
-                                    </label>
-                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="地址或取貨店名" value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} />
+                                    <label className="text-xs font-bold text-neutral-500 uppercase">詳細收件地址 / 門市名稱 <span className="text-red-500 font-bold ml-0.5">*</span></label>
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="例如：台北市... 或 7-11 宜大門市" value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} />
                                 </div>
-
                                 {paymentMethod === 'credit_card' && (
                                     <div className="md:col-span-2 pt-2 animate-in fade-in slide-in-from-top-1">
                                         <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-neutral-500 uppercase">
-                                                信用卡卡號 <span className="text-red-500 font-bold ml-0.5">*</span>
-                                            </label>
-                                            <input 
-                                                type="text" 
-                                                className="w-full p-2.5 rounded-lg bg-primary/5 border border-primary/20 outline-none focus:border-primary/40 font-mono text-sm tracking-widest" 
-                                                placeholder="16 碼卡號" 
-                                                value={receiver.cardNumber} 
-                                                onChange={e => setReceiver({...receiver, cardNumber: e.target.value.replace(/\D/g, '').slice(0, 16)})} 
-                                            />
+                                            <label className="text-xs font-bold text-neutral-500 uppercase">信用卡卡號 <span className="text-red-500 font-bold ml-0.5">*</span></label>
+                                            <input type="text" className="w-full p-2.5 rounded-lg bg-primary/5 border border-primary/20 outline-none focus:border-primary/40 font-mono text-sm tracking-widest" placeholder="16 碼卡號" value={receiver.cardNumber} onChange={e => setReceiver({...receiver, cardNumber: e.target.value.replace(/\D/g, '').slice(0, 16)})} />
                                         </div>
                                     </div>
                                 )}

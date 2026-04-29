@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, TrendingUp, Eye, Package, DollarSign } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -10,7 +10,7 @@ interface SellerDashboardPageProps {
     onNavigate: (page: string) => void;
 }
 
-// 模擬的圖表假資料 (近七天流量與銷售額)
+// 模擬的折線圖資料 (近七天流量與銷售額)
 const weeklyData = [
     { name: '週一', views: 120, sales: 1500 },
     { name: '週二', views: 200, sales: 3200 },
@@ -21,15 +21,60 @@ const weeklyData = [
     { name: '週日', views: 380, sales: 7200 },
 ];
 
-// 模擬的熱門商品假資料
-const topProductsData = [
-    { name: 'Nintendo Switch', views: 845 },
-    { name: 'TWS 金道勳小卡', views: 520 },
-    { name: '復古皮衣', views: 310 },
-    { name: '二手 AirPods Pro', views: 280 },
-];
-
 export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
+    // 建立 State 存取真實商品數據
+    const [chartData, setChartData] = useState<any[]>([]);
+    const [stats, setStats] = useState({
+        totalViews: 0,
+        activeProducts: 0,
+    });
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchSellerData = async () => {
+            // 1. 取得登入的使用者資訊
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+
+            try {
+                // 2. 向後端要該賣家的所有商品
+                const res = await fetch(`http://localhost:3001/api/products?sellerEmail=${user.email}`);
+                const data = await res.json();
+
+                if (data.success && data.products) {
+                    // 🌟 核心修正：增加前端過濾，確保只顯示屬於目前使用者的商品
+                    const myProductsOnly = data.products.filter((p: any) => p.sellerEmail === user.email);
+
+                    // 3. 轉換資料格式給 BarChart 使用 (只處理自己的商品)
+                    const formattedData = myProductsOnly.map((product: any) => ({
+                        name: product.title,
+                        views: product.views || 0 // 確保有數值
+                    }));
+
+                    // 4. 依照瀏覽次數排序 (從高到低)，只取前 5 名
+                    formattedData.sort((a: any, b: any) => b.views - a.views);
+                    const topProducts = formattedData.slice(0, 5);
+
+                    setChartData(topProducts);
+
+                    // 5. 計算核心數據 (只統計自己的商品)
+                    const totalViews = myProductsOnly.reduce((sum: number, p: any) => sum + (p.views || 0), 0);
+                    setStats({
+                        totalViews: totalViews,
+                        activeProducts: myProductsOnly.length
+                    });
+                }
+            } catch (error) {
+                console.error("抓取賣家數據失敗:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchSellerData();
+    }, []);
+
     return (
         <div className="min-h-screen bg-neutral-50 pb-20">
             {/* 頂部導覽 */}
@@ -68,14 +113,14 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground mb-1">商品總瀏覽量</p>
-                                    <h3 className="text-3xl font-bold">1,900</h3>
+                                    <h3 className="text-3xl font-bold">{isLoading ? "---" : stats.totalViews.toLocaleString()}</h3>
                                 </div>
                                 <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
                                     <Eye className="w-6 h-6" />
                                 </div>
                             </div>
                             <p className="text-sm text-green-600 mt-4 flex items-center gap-1">
-                                <TrendingUp className="w-4 h-4" /> 較上月成長 8.2%
+                                <TrendingUp className="w-4 h-4" /> 數據即時同步中
                             </p>
                         </CardContent>
                     </Card>
@@ -85,14 +130,14 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground mb-1">上架中商品</p>
-                                    <h3 className="text-3xl font-bold">24</h3>
+                                    <h3 className="text-3xl font-bold">{isLoading ? "---" : stats.activeProducts}</h3>
                                 </div>
                                 <div className="p-3 bg-orange-100 rounded-xl text-orange-600">
                                     <Package className="w-6 h-6" />
                                 </div>
                             </div>
                             <p className="text-sm text-muted-foreground mt-4">
-                                有 3 件商品即將售完
+                                管理您的刊登物
                             </p>
                         </CardContent>
                     </Card>
@@ -145,18 +190,24 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                         <CardContent className="p-6">
                             <h3 className="text-lg font-bold mb-6">熱門商品瀏覽排行</h3>
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={topProductsData} layout="vertical" margin={{ top: 5, right: 20, left: 40, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-                                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#333', fontSize: 12 }} width={100} />
-                                        <Tooltip
-                                            cursor={{ fill: '#f8fafc' }}
-                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        />
-                                        <Bar dataKey="views" name="瀏覽次數" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                {isLoading ? (
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">數據讀取中...</div>
+                                ) : chartData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 40, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#333', fontSize: 12 }} width={100} />
+                                            <Tooltip
+                                                cursor={{ fill: '#f8fafc' }}
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            />
+                                            <Bar dataKey="views" name="瀏覽次數" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">尚無屬於您的商品數據</div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
