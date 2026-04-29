@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { motion, Variants } from "framer-motion";
 
 interface ProductListPageProps {
   onNavigate: (page: string, productId?: string, searchQuery?: string) => void;
@@ -30,6 +31,24 @@ const conditionConfig: Record<string, { label: string; colorClass: string }> = {
   "fair": { label: "尚可", colorClass: "bg-stone-100 text-stone-500 border border-stone-100" },
 };
 
+// ── Animation variants — mirrors HomePage exactly ────────────────────────────
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 32 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.25, 0.1, 0.25, 1] } },
+};
+
+const staggerContainer: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
+};
+
+const cardVariant: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.25, 0.1, 0.25, 1] } },
+};
+
+// ────────────────────────────────────────────────────────────────────────────
 
 export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListPageProps) {
   const [products, setProducts] = useState<any[]>([]);
@@ -127,24 +146,36 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     <div className="min-h-screen flex flex-col bg-white text-gray-900 antialiased">
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 sm:px-10 py-10">
 
-        {/* ── Back link ── */}
-        <button
-          onClick={() => onNavigate("home")}
+        {/* ── Back link — FIXED: "BACK" route + "返回" label ── */}
+        <motion.button
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          onClick={() => onNavigate("BACK")}
           className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-900 transition-colors duration-200 mb-10 -ml-1"
         >
           <ChevronLeft className="w-4 h-4" />
-          返回首頁
-        </button>
+          返回
+        </motion.button>
 
         {/* ── Page heading ── */}
-        <div className="mb-10">
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className="mb-10"
+        >
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">瀏覽商品</h1>
           <p className="text-gray-400 mt-2 text-sm">探索優質二手好物，找到屬於你的寶物</p>
-        </div>
+        </motion.div>
 
         {/* ── Search + Filters ── */}
-        <div className="flex flex-col md:flex-row gap-3 mb-6">
-          {/* Search */}
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className="flex flex-col md:flex-row gap-3 mb-6"
+        >
           <form onSubmit={handleLocalSearch} className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
@@ -155,7 +186,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             />
           </form>
 
-          {/* Category select */}
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-full md:w-44 h-11 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 focus:ring-2 focus:ring-gray-300 px-4">
               <SelectValue placeholder="分類" />
@@ -168,7 +198,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             </SelectContent>
           </Select>
 
-          {/* Sort select */}
           <Select value={sortOrder} onValueChange={setSortOrder}>
             <SelectTrigger className="w-full md:w-44 h-11 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 focus:ring-2 focus:ring-gray-300 px-4">
               <SelectValue placeholder="排序方式" />
@@ -179,15 +208,20 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
               <SelectItem value="price-high">價格：高到低</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </motion.div>
 
         {/* ── Result count label ── */}
-        <div className="flex items-center gap-3 mb-8">
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+          className="flex items-center gap-3 mb-8"
+        >
           <p className="text-sm font-medium text-gray-700">{resultLabel}</p>
           <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
             共 {products.length} 件
           </span>
-        </div>
+        </motion.div>
 
         {/* ── Loading ── */}
         {isLoading ? (
@@ -198,34 +232,47 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
 
           /* ── Empty state ── */
         ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-40 text-gray-300 gap-3">
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="flex flex-col items-center justify-center py-40 text-gray-300 gap-3"
+          >
             <p className="text-4xl">🔍</p>
             <p className="text-sm">找不到符合的商品，換個分類或關鍵字試試看吧！</p>
-          </div>
+          </motion.div>
 
           /* ── Product grid ── */
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: false, amount: 0.05 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12"
+          >
             {products.map(product => {
-              const cond = conditionConfig[product.condition] ?? { label: "未知", color: "bg-stone-100 text-stone-500 ring-1 ring-stone-200" };
+              const cond = conditionConfig[product.condition] ?? { label: "未知", colorClass: "bg-stone-100 text-stone-500 border border-stone-200" };
               const isFav = userFavorites.includes(product.id);
               const isDelisted = product.status === "已下架";
 
               return (
-                <div
+                <motion.div
                   key={product.id}
+                  variants={cardVariant}
                   onClick={() => handleProductClick(product)}
+                  whileHover={{ y: -6 }}
+                  transition={{ type: "spring", stiffness: 280, damping: 18 }}
                   className={`group cursor-pointer ${isDelisted ? "opacity-50" : ""}`}
                 >
-                  {/* ── Image card — identical to HomePage ── */}
-                  <div className="relative aspect-square rounded-2xl bg-gray-50 overflow-hidden mb-4 group-hover:-translate-y-1 group-hover:shadow-lg transition-all duration-300">
+                  {/* ── Image card ── */}
+                  <div className="relative aspect-square rounded-2xl bg-gray-50 overflow-hidden mb-4 group-hover:shadow-lg transition-shadow duration-300">
                     <ImageWithFallback
                       src={product.images?.[0] || ""}
                       alt={product.title}
                       className={`w-full h-full object-contain p-6 transition-transform duration-500 ease-out group-hover:scale-105 ${isDelisted ? "grayscale" : ""}`}
                     />
 
-                    {/* Delisted overlay */}
                     {isDelisted && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-xs font-medium text-gray-500 bg-white/80 px-3 py-1 rounded-full">
@@ -234,7 +281,6 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                       </div>
                     )}
 
-                    {/* Favorite button */}
                     <button
                       onClick={e => handleToggleFavorite(e, product)}
                       className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-all duration-200
@@ -261,23 +307,29 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                       </span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
 
         {/* ── Load more ── */}
         {!isLoading && products.length >= 20 && (
-          <div className="mt-16 text-center">
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.5 }}
+            className="mt-16 text-center"
+          >
             <button className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 border border-gray-200 px-10 py-3.5 rounded-full hover:border-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-300">
               載入更多商品
             </button>
-          </div>
+          </motion.div>
         )}
       </div>
 
-      {/* ── Footer — matches HomePage exactly ── */}
+      {/* ── Footer ── */}
       <footer className="border-t border-gray-100 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">二手好物市集</p>
