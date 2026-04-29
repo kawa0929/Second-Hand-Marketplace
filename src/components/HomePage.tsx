@@ -62,12 +62,12 @@ const categories = [
   },
 ];
 
-const conditionConfig: Record<string, { label: string }> = {
-  "new": { label: "全新" },
-  "like-new": { label: "近全新" },
-  "excellent": { label: "極佳" },
-  "good": { label: "良好" },
-  "fair": { label: "尚可" },
+const conditionConfig: Record<string, { label: string; colorClass: string }> = {
+  "new": { label: "全新", colorClass: "bg-emerald-50 text-emerald-600 border border-emerald-100" },
+  "like-new": { label: "近全新", colorClass: "bg-blue-50 text-blue-600 border border-blue-100" },
+  "excellent": { label: "極佳", colorClass: "bg-indigo-50 text-indigo-600 border border-indigo-100" },
+  "good": { label: "良好", colorClass: "bg-amber-50 text-amber-600 border border-amber-100" },
+  "fair": { label: "尚可", colorClass: "bg-orange-50 text-orange-600 border border-orange-100" },
 };
 
 // ── Intersection Observer hook for scroll-triggered animations ──
@@ -365,7 +365,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
               {latestProducts.map((product, i) => {
-                const cond = conditionConfig[product.condition] ?? { label: "未知" };
+                const cond = conditionConfig[product.condition] ?? { label: "未知", colorClass: "bg-gray-50 text-gray-500 border border-gray-200" };
                 const isFav = userFavorites.includes(product.id);
                 const isDelisted = product.status === "已下架";
 
@@ -409,7 +409,9 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                       </p>
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-gray-500">NT${Number(product.price).toLocaleString()}</p>
-                        <span className="text-[10px] text-gray-400 font-medium">{cond.label}</span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cond.colorClass}`}>
+                          {cond.label}
+                        </span>
                       </div>
                     </div>
                   </RevealGridItem>
