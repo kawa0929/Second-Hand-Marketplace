@@ -144,7 +144,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     <div className="min-h-screen flex flex-col bg-white text-gray-900 antialiased overflow-x-hidden">
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          HERO — full-bleed with true parallax
+         HERO — full-bleed with true parallax
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section
         ref={heroRef}
@@ -229,7 +229,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          SEARCH BAR
+         SEARCH BAR
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <motion.div
         variants={fadeUp}
@@ -261,25 +261,19 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </motion.div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          CATEGORY IMAGE GRID — staggered reveal
+         CATEGORY IMAGE GRID — staggered reveal
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section className="max-w-7xl mx-auto w-full px-6 sm:px-10 pt-20 pb-10">
 
-        {/* Section heading */}
+        {/* Section heading (已修改：移除右側按鈕) */}
         <motion.div
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: false, amount: 0.3 }}
-          className="flex items-end justify-between mb-10"
+          className="mb-10 text-left"
         >
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">瀏覽分類</h2>
-          <button
-            onClick={() => onNavigate("products")}
-            className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-900 transition-colors duration-200"
-          >
-            查看全部 <ChevronRight className="w-4 h-4" />
-          </button>
         </motion.div>
 
         {/* Staggered grid */}
@@ -323,7 +317,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          LATEST PRODUCTS — staggered reveal
+         LATEST PRODUCTS — staggered reveal
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section className="max-w-7xl mx-auto w-full px-6 sm:px-10 pt-16 pb-28">
 
@@ -442,7 +436,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          FOOTER
+         FOOTER
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <footer className="border-t border-gray-100 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
