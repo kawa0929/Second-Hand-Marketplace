@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { 
     ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, 
-    CheckCircle2, Smartphone, ExternalLink, Home, FileText, User
+    CheckCircle2, Smartphone, ExternalLink, Home, FileText, User,
+    Loader2 // 導入讀取圖示
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -13,6 +14,7 @@ interface CheckoutPageProps {
 }
 
 export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
+    // 狀態管理：包含 'form' (填寫中), 'redirect' (跳轉中), 'success' (成功)
     const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
     
     // 讀取待結帳商品
@@ -27,6 +29,21 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const [paymentMethod, setPaymentMethod] = useState("credit_card");
     const [receiver, setReceiver] = useState({ name: "", phone: "", address: "", cardNumber: "" });
 
+    // 🌟 根據支付方式決定跳轉文字
+    const getRedirectMessage = () => {
+        switch (paymentMethod) {
+            case 'credit_card':
+                return "正在詢問發卡機構...";
+            case 'linepay':
+            case 'jkopay':
+            case 'easywallet':
+            case 'pxpay':
+                return "正在連結至電子支付安全加密頁面...";
+            default:
+                return "交易處理中，請稍候...";
+        }
+    };
+
     const groupedItems = checkoutItems.reduce((acc: any, item: any) => {
         const sellerName = item.seller || "個人賣家";
         if (!acc[sellerName]) acc[sellerName] = [];
@@ -38,7 +55,7 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
 
-    // 🌟 核心功能：驗證並將訂單存入交易紀錄
+    // 核心提交功能
     const handleCheckoutSubmit = () => {
         const { name, phone, address, cardNumber } = receiver;
 
@@ -67,45 +84,74 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             }
         }
 
-        // 🌟 2. 打包交易資訊 (存入交易紀錄)
+        // 2. 打包交易資訊
         const newTransaction = {
-            id: "ORDER-" + Date.now(), // 產生唯一訂單編號
+            id: "ORDER-" + Date.now(),
             date: new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }),
-            items: checkoutItems, // 包含商品標題、價格、圖片、賣家
+            items: checkoutItems,
             totalPrice: orderTotal,
-            status: "已完成", // 下單後預設為已完成
-            payment: paymentMethod === 'credit_card' ? '信用卡' : '貨到付款',
+            status: "已完成",
+            payment: paymentMethod === 'credit_card' ? '信用卡' : (paymentMethod === 'cod' ? '貨到付款' : '電子支付'),
             delivery: deliveryMethod === 'home' ? '宅配' : '超商取貨'
         };
 
-        // 🌟 3. 讀取現有紀錄並存入 (讓交易紀錄頁面能抓到)
+        // 3. 存入交易紀錄
         try {
             const history = JSON.parse(localStorage.getItem('user_transactions') || '[]');
-            history.unshift(newTransaction); // 將新訂單排在最上面
+            history.unshift(newTransaction);
             localStorage.setItem('user_transactions', JSON.stringify(history));
-            
-            // 同時如果該商品原本在購物車，也要清空 (選配)
-            // localStorage.removeItem('cart_items'); 
         } catch (e) {
             console.error("儲存交易紀錄失敗", e);
         }
 
-        // 4. 完成結帳流程
-        toast.success("🎉 訂單已成功建立！交易紀錄已更新。");
-        localStorage.removeItem('checkout_items'); // 清除結帳暫存
-        setCheckoutStep('success');
+        // 4. 控制跳轉流程
+        if (paymentMethod === 'cod') {
+            // 貨到付款：直接跳成功
+            toast.success("🎉 訂單已成功建立！交易紀錄已更新。");
+            localStorage.removeItem('checkout_items');
+            setCheckoutStep('success');
+        } else {
+            // 其餘支付：先顯示跳轉頁面
+            setCheckoutStep('redirect');
+            
+            // 模擬 2.5 秒的處理時間
+            setTimeout(() => {
+                toast.success("🎉 支付成功！訂單已完成。");
+                localStorage.removeItem('checkout_items');
+                setCheckoutStep('success');
+            }, 2500);
+        }
     };
 
+    // --- 分流渲染：跳轉中介頁面 ---
+    if (checkoutStep === 'redirect') {
+        return (
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+                <div className="space-y-6 text-center animate-in fade-in duration-500">
+                    <div className="relative flex items-center justify-center">
+                        <Loader2 className="w-16 h-16 text-neutral-800 animate-spin" />
+                        <div className="absolute w-8 h-8 bg-neutral-100 rounded-full animate-ping" />
+                    </div>
+                    <div className="space-y-2">
+                        <h2 className="text-xl font-bold text-neutral-800 tracking-tight">{getRedirectMessage()}</h2>
+                        <p className="text-sm text-neutral-400">請勿關閉或重新整理頁面</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- 分流渲染：成功頁面 ---
     if (checkoutStep === 'success') {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
-                <Card className="max-w-sm w-full rounded-2xl border-none shadow-sm text-center overflow-hidden">
+                <Card className="max-w-sm w-full rounded-2xl border-none shadow-sm text-center overflow-hidden animate-in zoom-in-95 duration-300">
                     <div className="bg-green-500 py-8 flex justify-center"><CheckCircle2 className="w-16 h-16 text-white" /></div>
                     <CardContent className="p-8 space-y-6">
                         <h1 className="text-xl font-bold">訂單建立成功！</h1>
                         <p className="text-sm text-neutral-500">您的交易紀錄已更新，您可以隨時查看進度。</p>
                         <div className="flex flex-col gap-2">
-                            <Button className="w-full rounded-xl font-bold py-5" onClick={() => onNavigate('transactions')}>查看訂單紀錄</Button>
+                            <Button className="w-full rounded-xl font-bold py-5 bg-[#333] hover:bg-black" onClick={() => onNavigate('transactions')}>查看訂單紀錄</Button>
                             <Button variant="ghost" className="w-full" onClick={() => onNavigate('home')}>回首頁繼續逛逛</Button>
                         </div>
                     </CardContent>
@@ -114,8 +160,10 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         );
     }
 
+    // --- 主要渲染：結帳表單 ---
     return (
         <div className="min-h-screen bg-[#F9FAFB] pb-10">
+            {/* Header */}
             <div className="bg-white border-b border-neutral-100 sticky top-0 z-10 h-14 flex items-center">
                 <div className="max-w-6xl mx-auto px-4 w-full flex items-center gap-3">
                     <Button variant="ghost" size="icon" className="rounded-full w-8 h-8" onClick={() => onNavigate('cart')}>
