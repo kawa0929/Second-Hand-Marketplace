@@ -9,7 +9,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 import { db } from "../firebase";
-// 🌟 這裡新增了 orderBy 和 limit 的匯入，用來幫資料庫省額度！
 import { collection, addDoc, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 
 interface ChatPageProps {
@@ -58,11 +57,13 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
     }
   }, [messages, pendingProduct, pendingImage]);
 
+  // 🌟 初始化清單（加入 3 天清道夫邏輯）
   useEffect(() => {
     const currentUser = getCurrentUser();
     const listStorageKey = `chatList_${currentUser.email}`;
     let savedChats = JSON.parse(localStorage.getItem(listStorageKey) || '[]');
 
+    // 斷捨離：如果某個聯絡人最後訊息時間超過 3 天，我們可以選擇不清除人，但這裡我們保持清單完整
     const pendingChatStr = localStorage.getItem('pendingChatContext');
     
     if (pendingChatStr) {
@@ -82,8 +83,9 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
           email: pendingChat.email || pendingChat.id,
           product: pendingChat.product,             
           productImage: pendingChat.productImage,   
-          lastMessage: `準備詢問：${pendingChat.product}`,
-          time: "剛剛",
+          // ✅ 移除「您好」，改為更清爽的提示
+          lastMessage: "點擊開始聊聊...",
+          time: "",
           unread: 0
         };
       }
@@ -102,9 +104,9 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
     }
   }, []);
 
+  // 🌟 核心：監聽訊息（加入 3 天過濾條件）
   useEffect(() => {
-    // 🌟 修正重點 2：依賴陣列從 [selectedChat] 改為 [selectedChat?.id]
-    if (!selectedChat) return;
+    if (!selectedChat?.id) return;
 
     const currentUser = getCurrentUser();
     const myEmail = currentUser.email;
@@ -112,14 +114,18 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
     const emails = [myEmail, partnerEmail].sort();
     const roomId = `${emails[0]}_${emails[1]}`;
 
+    // ✅ 設定 3 天前的時間門檻
+    const THREE_DAYS_AGO = Date.now() - (3 * 24 * 60 * 60 * 1000);
+
     const messagesRef = collection(db, "messages");
     
-    // 🌟 修正重點 1：加入 orderBy 抓取最新訊息，並使用 limit(30) 限制數量省額度！
+    // ✅ 加上 createdAt 過濾，只抓取 3 天內的內容
     const q = query(
       messagesRef,
       where("roomId", "==", roomId),
+      where("createdAt", ">=", THREE_DAYS_AGO),
       orderBy("createdAt", "desc"),
-      limit(30)
+      limit(50) 
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -128,10 +134,10 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
         ...doc.data()
       }));
       
-      // 因為上面是用 desc 抓最新的，這裡要在前端轉正，確保最新的訊息在畫面最下方
       loadedMessages.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
       setMessages(loadedMessages);
 
+      // 同步更新左側列表的最後一則訊息
       if (loadedMessages.length > 0) {
         const lastMsg = loadedMessages[loadedMessages.length - 1];
         const displayBody = lastMsg.type === 'product' ? "[商品資訊]" : (lastMsg.type === 'image' ? "[圖片]" : lastMsg.text);
@@ -143,43 +149,25 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
         
         if (chatIndex !== -1) {
           const isWatchingThisChat = selectedChat && selectedChat.id === currentStorageList[chatIndex].id;
-          const partnerEmailInList = currentStorageList[chatIndex].email || currentStorageList[chatIndex].id;
-          const lastPartnerMsg = [...loadedMessages].reverse().find(m => m.senderEmail === partnerEmailInList);
           
           currentStorageList[chatIndex] = {
             ...currentStorageList[chatIndex],
-            name: lastPartnerMsg?.senderName || currentStorageList[chatIndex].name,
-            avatar: lastPartnerMsg?.senderAvatar || currentStorageList[chatIndex].avatar,
             lastMessage: displayBody,
             time: lastMsg.time || "剛剛",
+            lastTimestamp: lastMsg.createdAt || Date.now(),
             unread: (isFromPartner && !isWatchingThisChat) ? (currentStorageList[chatIndex].unread || 0) + 1 : 0
           };
-          
-          if (isWatchingThisChat) {
-             setSelectedChat((prev: any) => ({
-                 ...prev,
-                 avatar: lastPartnerMsg?.senderAvatar || prev.avatar,
-                 name: lastPartnerMsg?.senderName || prev.name
-             }));
-          }
 
           const [movedItem] = currentStorageList.splice(chatIndex, 1);
           currentStorageList.unshift(movedItem);
-        } else {
-          currentStorageList.unshift({
-            id: selectedChat.id,
-            email: selectedChat.email,
-            name: selectedChat.name,
-            avatar: selectedChat.avatar,
-            lastMessage: displayBody,
-            time: lastMsg.time || "剛剛",
-            unread: 0
-          });
         }
         
         localStorage.setItem(listStorageKey, JSON.stringify(currentStorageList));
         setChatList(currentStorageList);
       }
+    }, (error) => {
+      // 🚨 這裡很重要！因為加了時間過濾，F12 控制台一定會出現新網址，記得點開建立索引
+      console.error("Firebase 監聽失敗，請檢查索引網址:", error);
     });
 
     return () => unsubscribe();
@@ -265,7 +253,7 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
           receiverEmail: partnerEmail,
           text: messageText,
           time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
-          createdAt: Date.now() + 1
+          createdAt: Date.now()
         });
       }
       setMessageText("");
@@ -278,6 +266,7 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
     <div className="h-[calc(100vh-64px)] bg-neutral-50">
       <div className="h-full max-w-7xl mx-auto flex overflow-hidden">
         
+        {/* 左側列表 */}
         <div className={`w-full md:w-96 bg-white border-r border-border flex-col h-full ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-4 border-b border-border shrink-0 text-left">
             <h2 className="mb-4 font-bold text-xl">訊息</h2>
@@ -339,6 +328,7 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
           </ScrollArea>
         </div>
 
+        {/* 右側對話區域 */}
         <div className={`flex-1 flex-col bg-white h-full overflow-hidden ${selectedChat ? 'flex' : 'hidden md:flex'}`}>
           {!selectedChat ? (
             <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col gap-4">
@@ -371,6 +361,11 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
 
               <div className="flex-1 overflow-y-auto p-4 bg-[#F8F9FA]" ref={scrollAreaRef}>
                 <div className="space-y-4">
+                  {messages.length === 0 && (
+                    <div className="text-center text-neutral-400 text-xs my-8 italic">
+                      三天內無新訊息
+                    </div>
+                  )}
                   {messages.map((message) => {
                     const isMe = message.senderEmail === getCurrentUser().email;
                     if (message.type === 'product') {
