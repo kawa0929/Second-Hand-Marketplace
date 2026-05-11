@@ -161,7 +161,6 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     }
   };
 
-  // ✅ 主要修改處：打包聊天需要的資訊
   const handleChatClick = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -173,14 +172,18 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
       return;
     }
 
-    // 將賣家與商品資訊存入 localStorage，讓 ChatPage 讀取
+    // 為了拿到賣家名稱與圖片，先在此處計算
+    const chatSellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
+    const chatSellerAvatar = product.sellerInfo?.avatarUrl || "";
+    const chatImages = product.images && product.images.length > 0 ? product.images : ["https://via.placeholder.com/800"];
+
     const chatContext = {
-      id: product.sellerEmail, // 用賣家的 email 作為對話唯一識別碼
-      name: sellerName,
-      avatar: sellerAvatar,
+      id: product.sellerEmail, 
+      name: chatSellerName,
+      avatar: chatSellerAvatar,
       email: product.sellerEmail,
       product: product.title,
-      productImage: images[mainImageIndex],
+      productImage: chatImages[mainImageIndex],
       productId: productId
     };
     localStorage.setItem('pendingChatContext', JSON.stringify(chatContext));
@@ -244,6 +247,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     }
   };
 
+  // ✅ 主要修改處：強制將當前商品寫入結帳緩存
   const handleCheckoutClick = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !currentUser.email) {
@@ -261,6 +265,32 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
       return;
     }
 
+    // 取得當前要結帳的價格與款式
+    const checkoutPrice = selectedVariation ? selectedVariation.price : product.price;
+    const checkoutVariationName = selectedVariation ? selectedVariation.name : "";
+    const checkoutImage = product.images && product.images.length > 0 ? product.images[mainImageIndex] : "https://via.placeholder.com/800";
+    const checkoutSellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
+    
+    // 組合出商品標題 (如果有選款式，把它加在標題後方)
+    const displayTitle = checkoutVariationName 
+        ? `${product.title} - ${checkoutVariationName}` 
+        : product.title;
+
+    // 將資料包裝成結帳頁面需要的陣列格式
+    const checkoutData = [{
+        id: productId,
+        title: displayTitle,
+        price: checkoutPrice,
+        image: checkoutImage,
+        seller: checkoutSellerName,
+        quantity: 1,
+        variationName: checkoutVariationName || "單一款式"
+    }];
+
+    // 🌟 強制覆寫 localStorage 內的結帳商品資料，避免讀到舊的
+    localStorage.setItem('checkout_items', JSON.stringify(checkoutData));
+
+    // 跳轉至結帳頁
     onNavigate('checkout', productId);
   };
 
