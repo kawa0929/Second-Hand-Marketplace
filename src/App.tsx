@@ -167,7 +167,7 @@ export default function App() {
   ].includes(currentRoute.page);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 🌟 根據目前的頁面決定是否顯示導覽列 */}
       {!shouldHideNav && (
         <Navigation
@@ -176,6 +176,10 @@ export default function App() {
           isLoggedIn={isLoggedIn}
         />
       )}
+
+      {/* 🌟 核心修改：從這裡開始用 main 包起來 */}
+      {/* 判斷：如果「沒有隱藏導航列」且「不是首頁」，就加上 pt-24 預留空間 */}
+      <main className={`flex-1 ${!shouldHideNav && currentRoute.page !== 'home' ? 'pt-15' : ''}`}>
 
       {/* 🌟 以下所有頁面渲染邏輯均改為判斷 currentRoute.page */}
 
@@ -279,6 +283,9 @@ export default function App() {
       {currentRoute.page === 'dashboard' && (
         <SellerDashboardPage onNavigate={handleNavigate} />
       )}
+
+      </main>
+      {/* 🌟 記得在這裡把 main 關閉 */}
 
       <Toaster />
     </div>
