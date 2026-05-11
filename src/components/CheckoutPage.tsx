@@ -2,22 +2,45 @@ import { useState } from "react";
 import { 
     ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, 
     CheckCircle2, Smartphone, ExternalLink, Home, FileText, User,
-    Loader2 // 導入讀取圖示
+    Loader2 
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
+// 🌟 台灣縣市與行政區資料
+const taiwanDistricts: Record<string, string[]> = {
+    "台北市": ["中正區", "萬華區", "大同區", "中山區", "松山區", "大安區", "信義區", "內湖區", "南港區", "士林區", "北投區", "文山區"],
+    "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"],
+    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "復興區"],
+    "台中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "龍井區", "沙鹿區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"],
+    "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新化區", "左鎮區", "玉井區", "楠西區", "南化區", "仁德區", "關廟區", "龍崎區", "官田區", "麻豆區", "佳里區", "西港區", "七股區", "學甲區", "下營區", "六甲區", "下營區", "新營區", "後壁區", "白河區", "東山區", "六甲區", "下營區", "柳營區", "鹽水區", "善化區", "大內區", "山上區", "新市區", "安定區"],
+    "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"],
+    "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"],
+    "新竹市": ["東區", "北區", "香山區"],
+    "新竹縣": ["竹北市", "竹東鎮", "新埔鎮", "關西鎮", "湖口鄉", "新豐鄉", "芎林鄉", "橫山鄉", "北埔鄉", "寶山鄉", "峨眉鄉", "尖石鄉", "五峰鄉"],
+    "苗栗縣": ["苗栗市", "頭份市", "竹南鎮", "後龍鎮", "通霄鎮", "苑裡鎮", "卓蘭鎮", "造橋鄉", "西湖鄉", "頭屋鄉", "公館鄉", "銅鑼鄉", "三義鄉", "大湖鄉", "獅潭鄉", "三灣鄉", "南庄鄉", "泰安鄉"],
+    "彰化縣": ["彰化市", "員林市", "和美鎮", "鹿港鎮", "溪湖鎮", "二林鎮", "田中鎮", "北斗鎮", "花壇鄉", "芬園鄉", "大村鄉", "永靖鄉", "伸港鄉", "線西鄉", "福興鄉", "秀水鄉", "埔心鄉", "埔鹽鄉", "大城鄉", "芳苑鄉", "竹塘鄉", "溪州鄉", "埤頭鄉", "二水鄉", "田尾鄉", "社頭鄉"],
+    "南投縣": ["南投市", "埔里鎮", "草屯鎮", "竹山鎮", "集集鎮", "名間鄉", "鹿谷鄉", "中寮鄉", "魚池鄉", "國姓鄉", "水里鄉", "信義鄉", "仁愛鄉"],
+    "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "台西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"],
+    "嘉義市": ["東區", "西區"],
+    "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"],
+    "屏東縣": ["屏東市", "潮州鎮", "東港鎮", "恆春鎮", "萬丹鄉", "長治鄉", "麟洛鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "內埔鄉", "竹田鄉", "竹田鄉", "萬巒鄉", "內埔鄉", "新埤鄉", "枋寮鄉", "新園鄉", "崁頂鄉", "林邊鄉", "南州鄉", "佳冬鄉", "琉球鄉", "車城鄉", "滿州鄉", "枋山鄉", "三地門鄉", "霧台鄉", "瑪家鄉", "泰武鄉", "來義鄉", "春日鄉", "獅子鄉", "牡丹鄉"],
+    "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"],
+    "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "鹿野鄉", "池上鄉", "東河鄉", "長濱鄉", "太麻里鄉", "大武鄉", "綠島鄉", "海端鄉", "延平鄉", "金峰鄉", "達仁鄉", "蘭嶼鄉"],
+    "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"],
+    "金門縣": ["金城鎮", "金湖鎮", "金沙鎮", "金寧鄉", "烈嶼鄉", "烏坵鄉"],
+    "連江縣": ["南竿鄉", "北竿鄉", "莒光鄉", "東引鄉"]
+};
+
 interface CheckoutPageProps {
     onNavigate: (page: string, data?: any) => void;
 }
 
 export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
-    // 狀態管理：包含 'form' (填寫中), 'redirect' (跳轉中), 'success' (成功)
     const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
     
-    // 讀取待結帳商品
     const [checkoutItems] = useState<any[]>(() => {
         try {
             const savedData = localStorage.getItem('checkout_items');
@@ -27,20 +50,25 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
 
     const [deliveryMethod, setDeliveryMethod] = useState("711");
     const [paymentMethod, setPaymentMethod] = useState("credit_card");
-    const [receiver, setReceiver] = useState({ name: "", phone: "", address: "", cardNumber: "" });
+    
+    // 🌟 更新 State：新增 city 與 district
+    const [receiver, setReceiver] = useState({ 
+        name: "", 
+        phone: "", 
+        city: "", 
+        district: "", 
+        address: "", 
+        cardNumber: "" 
+    });
 
-    // 🌟 根據支付方式決定跳轉文字
     const getRedirectMessage = () => {
         switch (paymentMethod) {
-            case 'credit_card':
-                return "正在詢問發卡機構...";
+            case 'credit_card': return "正在詢問發卡機構...";
             case 'linepay':
             case 'jkopay':
             case 'easywallet':
-            case 'pxpay':
-                return "正在連結至電子支付安全加密頁面...";
-            default:
-                return "交易處理中，請稍候...";
+            case 'pxpay': return "正在連結至電子支付安全加密頁面...";
+            default: return "交易處理中，請稍候...";
         }
     };
 
@@ -55,13 +83,11 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
 
-    // 核心提交功能
     const handleCheckoutSubmit = () => {
-        const { name, phone, address, cardNumber } = receiver;
+        const { name, phone, city, district, address, cardNumber } = receiver;
 
-        // 1. 格式驗證
         if (name.trim().length < 2) {
-            toast.error("姓名格式錯誤：請輸入真實姓名（至少2個字）");
+            toast.error("請輸入真實姓名（至少2個字）");
             return;
         }
 
@@ -71,20 +97,25 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             return;
         }
 
-        if (address.trim().length < 5) {
-            toast.error("地址或門市資訊過短：請填寫詳細取貨資訊");
+        // 🌟 增加下拉選單驗證
+        if (!city || !district) {
+            toast.error("請選擇收件縣市與地區");
+            return;
+        }
+
+        if (address.trim().length < 3) {
+            toast.error("詳細地址資訊過短");
             return;
         }
 
         if (paymentMethod === 'credit_card') {
             const cardRegex = /^\d{16}$/;
             if (!cardRegex.test(cardNumber)) {
-                toast.error("卡號格式錯誤：信用卡號須為 16 位純數字");
+                toast.error("信用卡號須為 16 位純數字");
                 return;
             }
         }
 
-        // 2. 打包交易資訊
         const newTransaction = {
             id: "ORDER-" + Date.now(),
             date: new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -92,29 +123,24 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             totalPrice: orderTotal,
             status: "已完成",
             payment: paymentMethod === 'credit_card' ? '信用卡' : (paymentMethod === 'cod' ? '貨到付款' : '電子支付'),
-            delivery: deliveryMethod === 'home' ? '宅配' : '超商取貨'
+            delivery: deliveryMethod === 'home' ? '宅配' : '超商取貨',
+            fullAddress: `${city}${district}${address}` // 儲存完整地址
         };
 
-        // 3. 存入交易紀錄
         try {
             const history = JSON.parse(localStorage.getItem('user_transactions') || '[]');
             history.unshift(newTransaction);
             localStorage.setItem('user_transactions', JSON.stringify(history));
         } catch (e) {
-            console.error("儲存交易紀錄失敗", e);
+            console.error("儲存失敗", e);
         }
 
-        // 4. 控制跳轉流程
         if (paymentMethod === 'cod') {
-            // 貨到付款：直接跳成功
-            toast.success("🎉 訂單已成功建立！交易紀錄已更新。");
+            toast.success("🎉 訂單已成功建立！");
             localStorage.removeItem('checkout_items');
             setCheckoutStep('success');
         } else {
-            // 其餘支付：先顯示跳轉頁面
             setCheckoutStep('redirect');
-            
-            // 模擬 2.5 秒的處理時間
             setTimeout(() => {
                 toast.success("🎉 支付成功！訂單已完成。");
                 localStorage.removeItem('checkout_items');
@@ -123,7 +149,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         }
     };
 
-    // --- 分流渲染：跳轉中介頁面 ---
     if (checkoutStep === 'redirect') {
         return (
             <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
@@ -141,7 +166,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         );
     }
 
-    // --- 分流渲染：成功頁面 ---
     if (checkoutStep === 'success') {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
@@ -160,10 +184,8 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         );
     }
 
-    // --- 主要渲染：結帳表單 ---
     return (
         <div className="min-h-screen bg-[#F9FAFB] pb-10">
-            {/* Header */}
             <div className="bg-white border-b border-neutral-100 sticky top-0 z-10 h-14 flex items-center">
                 <div className="max-w-6xl mx-auto px-4 w-full flex items-center gap-3">
                     <Button variant="ghost" size="icon" className="rounded-full w-8 h-8" onClick={() => onNavigate('cart')}>
@@ -251,10 +273,43 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                     <label className="text-xs font-bold text-neutral-500 uppercase">聯絡電話 <span className="text-red-500 font-bold ml-0.5">*</span></label>
                                     <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="09xxxxxxxx" value={receiver.phone} onChange={e => setReceiver({...receiver, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
                                 </div>
+                                
+                                {/* 🌟 縣市地區下拉選單 */}
+                                <div className="md:col-span-2 grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-neutral-500 uppercase">縣市 <span className="text-red-500 font-bold ml-0.5">*</span></label>
+                                        <select 
+                                            className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm appearance-none cursor-pointer"
+                                            value={receiver.city}
+                                            onChange={(e) => setReceiver({...receiver, city: e.target.value, district: ""})}
+                                        >
+                                            <option value="">請選擇縣市</option>
+                                            {Object.keys(taiwanDistricts).map(city => (
+                                                <option key={city} value={city}>{city}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-neutral-500 uppercase">地區 <span className="text-red-500 font-bold ml-0.5">*</span></label>
+                                        <select 
+                                            className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm appearance-none cursor-pointer disabled:opacity-50"
+                                            value={receiver.district}
+                                            onChange={(e) => setReceiver({...receiver, district: e.target.value})}
+                                            disabled={!receiver.city}
+                                        >
+                                            <option value="">請選擇地區</option>
+                                            {receiver.city && taiwanDistricts[receiver.city].map(dist => (
+                                                <option key={dist} value={dist}>{dist}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div className="md:col-span-2 space-y-1.5">
                                     <label className="text-xs font-bold text-neutral-500 uppercase">詳細收件地址 / 門市名稱 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="例如：台北市... 或 7-11 宜大門市" value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} />
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="例如：忠孝東路三段1號 或 宜大門市" value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} />
                                 </div>
+
                                 {paymentMethod === 'credit_card' && (
                                     <div className="md:col-span-2 pt-2 animate-in fade-in slide-in-from-top-1">
                                         <div className="space-y-1.5">
@@ -268,7 +323,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                     </Card>
                 </div>
 
-                {/* 右側：摘要 */}
                 <div className="lg:col-span-1">
                     <Card className="rounded-2xl border-none shadow-sm bg-white sticky top-20 overflow-hidden">
                         <CardContent className="p-6">
