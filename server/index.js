@@ -741,5 +741,166 @@ app.post('/api/ai-analyze-image', async (req, res) => {
     }
 });
 
+// 🌟 22. 結帳與建立訂單 API (扣除庫存、清空對應購物車、更新商品狀態)
+app.post('/api/checkout', async (req, res) => {
+    const { email, items, receiver, paymentMethod, deliveryMethod, totalAmount } = req.body;
+
+    try {
+        // 1. 建立訂單紀錄 (存入 'orders' 集合)
+        const orderRef = db.collection('orders').doc(); // 讓 Firebase 自動產生隨機訂單 ID
+        const newOrder = {
+            orderId: orderRef.id,
+            email,
+            items,
+            receiver,
+            paymentMethod,
+            deliveryMethod,
+            totalAmount,
+            status: '已完成', // 可以依需求改為 '待出貨' 或 '處理中'
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        await orderRef.set(newOrder);
+
+        // 2. 處理商品庫存、狀態與購物車
+        for (const item of items) {
+
+            // 👉 A. 處理商品庫存與下架邏輯
+            // 注意：前端傳來的是 item.id，對應到產品的 doc.id
+            const productRef = db.collection('products').doc(item.id);
+            const productDoc = await productRef.get();
+
+            if (productDoc.exists) {
+                const productData = productDoc.data();
+                let updatedVariations = productData.variations || [];
+                let newTotalStock = productData.stock || 0;
+
+                // 判斷是否為多規格商品
+                if (item.variationName && item.variationName !== "單一款式" && updatedVariations.length > 0) {
+                    // 扣除特定規格的庫存
+                    updatedVariations = updatedVariations.map(v => {
+                        if (v.name === item.variationName) {
+                            return { ...v, stock: Math.max(0, v.stock - item.quantity) };
+                        }
+                        return v;
+                    });
+                    // 重新計算這項商品的總庫存
+                    newTotalStock = updatedVariations.reduce((sum, v) => sum + v.stock, 0);
+                } else {
+                    // 單一款式，直接扣總庫存
+                    newTotalStock = Math.max(0, newTotalStock - item.quantity);
+                }
+
+                // 判斷是否需要下架 (如果總庫存歸零)
+                const newStatus = newTotalStock <= 0 ? '已下架' : productData.status;
+
+                // 寫回資料庫
+                await productRef.update({
+                    stock: newTotalStock,
+                    variations: updatedVariations,
+                    status: newStatus,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            // 👉 B. 從購物車中移除該商品
+            // 無論是從「購物車」還是「直接購買」過來，我們都透過唯一的 cartId 規則來清除它
+            const cartIdToDelete = item.cartId || `${email}_${item.id}_${item.variationName || "單一款式"}`;
+            await db.collection('cart').doc(cartIdToDelete).delete();
+        }
+
+        console.log(`💰 結帳成功: 訂單 ${orderRef.id} (買家: ${email})`);
+        res.status(200).json({ success: true, message: '結帳成功，訂單已建立' });
+
+    } catch (error) {
+        console.error('❌ 結帳發生錯誤:', error);
+        res.status(500).json({ success: false, message: '伺服器結帳錯誤' });
+    }
+});
+
+// 🌟 23. 獲取特定買家的所有購買紀錄
+app.get('/api/orders/buyer/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
+        // 去 orders 資料表尋找 email 符合的訂單
+        const snapshot = await db.collection('orders').where('email', '==', email).get();
+
+        const orders = snapshot.docs.map(doc => {
+            const data = doc.data();
+
+            // 安全處理日期格式
+            let formattedDate = "剛剛";
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                formattedDate = data.createdAt.toDate().toISOString();
+            } else if (data.createdAt) {
+                formattedDate = new Date(data.createdAt).toISOString();
+            }
+
+            return {
+                id: doc.id,
+                ...data,
+                date: formattedDate // 為了配合前端的顯示
+            };
+        });
+
+        // 在伺服器端依時間排序：最新的訂單排在最前面
+        orders.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        res.status(200).json({ success: true, orders });
+    } catch (error) {
+        console.error('❌ 獲取購買紀錄失敗:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+// 🌟 24. 獲取特定賣家被購買的訂單 (我賣出的)
+app.get('/api/orders/seller/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
+
+        // 1. 先查出這個賣家的「顯示名稱」 (因為前端下單時，seller 存的通常是名字)
+        const userDoc = await db.collection('users').doc(email).get();
+        let sellerName = email.split('@')[0]; // 預設用信箱前綴
+        if (userDoc.exists && userDoc.data().fullname) {
+            sellerName = userDoc.data().fullname;
+        }
+
+        // 2. 撈出所有訂單來過濾 (尋找 items 陣列中，seller 符合該賣家名稱的訂單)
+        const snapshot = await db.collection('orders').get();
+        let sellerOrders = [];
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+
+            // 檢查這筆訂單的商品清單中，有沒有屬於這個賣家的商品
+            const hasMyItem = data.items && data.items.some(item =>
+                item.seller === sellerName || item.seller === email.split('@')[0]
+            );
+
+            if (hasMyItem) {
+                // 安全處理日期格式
+                let formattedDate = "剛剛";
+                if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                    formattedDate = data.createdAt.toDate().toISOString();
+                } else if (data.createdAt) {
+                    formattedDate = new Date(data.createdAt).toISOString();
+                }
+
+                sellerOrders.push({
+                    id: doc.id,
+                    ...data,
+                    date: formattedDate
+                });
+            }
+        });
+
+        // 依時間排序：最新的訂單排在最前面
+        sellerOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        res.status(200).json({ success: true, orders: sellerOrders });
+    } catch (error) {
+        console.error('❌ 獲取賣出紀錄失敗:', error);
+        res.status(500).json({ success: false, message: '伺服器錯誤' });
+    }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));

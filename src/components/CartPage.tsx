@@ -154,14 +154,23 @@ export function CartPage({ onNavigate }: CartPageProps) {
     const selectedItems = validItems.filter(item => selectedCartIds.includes(item.cartId));
     const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+    // 🌟 請換成這個修正後的版本
     const handleCheckout = () => {
         if (selectedItems.length === 0) {
             toast.error("請先勾選要結帳的商品喔！");
             return;
         }
-        
-        // 將被勾選的商品存入 localStorage 給 CheckoutPage 讀取
-        localStorage.setItem('checkout_items', JSON.stringify(selectedItems));
+
+        // 🌟 核心修正點：
+        // 因為購物車抓下來的資料欄位是 productId，但結帳頁面與後端統一是讀取 id
+        // 我們在這裡利用 .map 產生一個包含 id 欄位的新陣列
+        const normalizedItems = selectedItems.map(item => ({
+            ...item,
+            id: item.productId // 👈 關鍵：把 productId 的值分身給 id
+        }));
+
+        // 改存入這個標準化後的陣列 (normalizedItems)
+        localStorage.setItem('checkout_items', JSON.stringify(normalizedItems));
         onNavigate('checkout');
     };
 

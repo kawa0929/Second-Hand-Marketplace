@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { 
-    ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet, 
+import {
+    ArrowLeft, MapPin, CreditCard, Store, Truck, Wallet,
     CheckCircle2, Smartphone, ExternalLink, Home, FileText, User,
-    Loader2 
+    Loader2
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -26,7 +26,7 @@ const taiwanDistricts: Record<string, string[]> = {
     "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "台西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"],
     "嘉義市": ["東區", "西區"],
     "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"],
-    "屏東縣": ["屏東市", "潮州鎮", "東港鎮", "恆春鎮", "萬丹鄉", "長治鄉", "麟洛鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "內埔鄉", "竹田鄉", "竹田鄉", "萬巒鄉", "內埔鄉", "新埤鄉", "枋寮鄉", "新園鄉", "崁頂鄉", "林邊鄉", "南州鄉", "佳冬鄉", "琉球鄉", "車城鄉", "滿州鄉", "枋山鄉", "三地門鄉", "霧台鄉", "瑪家鄉", "泰武鄉", "來義鄉", "春日鄉", "獅子鄉", "牡丹鄉"],
+    "屏東縣": ["屏東市", "潮州鎮", "東港鎮", "恆春鎮", "萬丹鄉", "長治鄉", "麟洛鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "內埔鄉", "竹田鄉", "萬巒鄉", "新埤鄉", "枋寮鄉", "新園鄉", "崁頂鄉", "林邊鄉", "南州鄉", "佳冬鄉", "琉球鄉", "車城鄉", "滿州鄉", "枋山鄉", "三地門鄉", "霧台鄉", "瑪家鄉", "泰武鄉", "來義鄉", "春日鄉", "獅子鄉", "牡丹鄉"],
     "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"],
     "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "鹿野鄉", "池上鄉", "東河鄉", "長濱鄉", "太麻里鄉", "大武鄉", "綠島鄉", "海端鄉", "延平鄉", "金峰鄉", "達仁鄉", "蘭嶼鄉"],
     "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"],
@@ -40,7 +40,7 @@ interface CheckoutPageProps {
 
 export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const [checkoutStep, setCheckoutStep] = useState<'form' | 'redirect' | 'success'>('form');
-    
+
     const [checkoutItems] = useState<any[]>(() => {
         try {
             const savedData = localStorage.getItem('checkout_items');
@@ -50,15 +50,15 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
 
     const [deliveryMethod, setDeliveryMethod] = useState("711");
     const [paymentMethod, setPaymentMethod] = useState("credit_card");
-    
+
     // 🌟 更新 State：新增 city 與 district
-    const [receiver, setReceiver] = useState({ 
-        name: "", 
-        phone: "", 
-        city: "", 
-        district: "", 
-        address: "", 
-        cardNumber: "" 
+    const [receiver, setReceiver] = useState({
+        name: "",
+        phone: "",
+        city: "",
+        district: "",
+        address: "",
+        cardNumber: ""
     });
 
     const getRedirectMessage = () => {
@@ -83,9 +83,11 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     const shippingFee = deliveryMethod === "home" ? 100 : 60;
     const orderTotal = itemTotal + shippingFee;
 
-    const handleCheckoutSubmit = () => {
+    // 🌟 核心功能：驗證、呼叫 API 並控制跳轉流程 (已修復衝突合併)
+    const handleCheckoutSubmit = async () => {
         const { name, phone, city, district, address, cardNumber } = receiver;
 
+        // 1. 欄位驗證
         if (name.trim().length < 2) {
             toast.error("請輸入真實姓名（至少2個字）");
             return;
@@ -97,7 +99,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             return;
         }
 
-        // 🌟 增加下拉選單驗證
         if (!city || !district) {
             toast.error("請選擇收件縣市與地區");
             return;
@@ -116,6 +117,15 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             }
         }
 
+        // 2. 登入狀態驗證
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+            toast.error("請先登入才能結帳喔！");
+            return;
+        }
+        const user = JSON.parse(userStr);
+
+        // 3. 準備儲存至本機的交易紀錄資料
         const newTransaction = {
             id: "ORDER-" + Date.now(),
             date: new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -124,28 +134,56 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             status: "已完成",
             payment: paymentMethod === 'credit_card' ? '信用卡' : (paymentMethod === 'cod' ? '貨到付款' : '電子支付'),
             delivery: deliveryMethod === 'home' ? '宅配' : '超商取貨',
-            fullAddress: `${city}${district}${address}` // 儲存完整地址
+            fullAddress: `${city}${district}${address}` // 儲存包含縣市地區的完整地址
+        };
+
+        // 4. 準備發送給後端 API 的資料
+        const checkoutData = {
+            email: user.email,
+            items: checkoutItems,
+            receiver: receiver,
+            paymentMethod: newTransaction.payment,
+            deliveryMethod: newTransaction.delivery,
+            totalAmount: orderTotal
         };
 
         try {
+            // 將紀錄存入本機 LocalStorage (保留你原本的功能)
             const history = JSON.parse(localStorage.getItem('user_transactions') || '[]');
             history.unshift(newTransaction);
             localStorage.setItem('user_transactions', JSON.stringify(history));
-        } catch (e) {
-            console.error("儲存失敗", e);
-        }
 
-        if (paymentMethod === 'cod') {
-            toast.success("🎉 訂單已成功建立！");
-            localStorage.removeItem('checkout_items');
-            setCheckoutStep('success');
-        } else {
-            setCheckoutStep('redirect');
-            setTimeout(() => {
-                toast.success("🎉 支付成功！訂單已完成。");
+            // 呼叫後端結帳 API
+            const response = await fetch('http://localhost:3001/api/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(checkoutData)
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                toast.error(`結帳失敗：${data.message}`);
+                return;
+            }
+
+            // 5. 控制跳轉流程
+            if (paymentMethod === 'cod') {
+                toast.success("🎉 訂單已成功建立！交易紀錄已更新。");
                 localStorage.removeItem('checkout_items');
                 setCheckoutStep('success');
-            }, 2500);
+            } else {
+                setCheckoutStep('redirect');
+                setTimeout(() => {
+                    toast.success("🎉 支付成功！訂單已完成。");
+                    localStorage.removeItem('checkout_items');
+                    setCheckoutStep('success');
+                }, 2500);
+            }
+
+        } catch (error) {
+            console.error("結帳連線錯誤", error);
+            toast.error("系統連線錯誤，請稍後再試");
         }
     };
 
@@ -197,7 +235,7 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
 
             <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-5">
-                    
+
                     {/* 物流選擇 */}
                     <Card className="rounded-2xl border-none shadow-sm bg-white">
                         <CardContent className="p-6">
@@ -267,21 +305,21 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-neutral-500 uppercase">收件人姓名 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="姓名" value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} />
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="姓名" value={receiver.name} onChange={e => setReceiver({ ...receiver, name: e.target.value })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-neutral-500 uppercase">聯絡電話 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="09xxxxxxxx" value={receiver.phone} onChange={e => setReceiver({...receiver, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="09xxxxxxxx" value={receiver.phone} onChange={e => setReceiver({ ...receiver, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                                 </div>
-                                
+
                                 {/* 🌟 縣市地區下拉選單 */}
                                 <div className="md:col-span-2 grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-neutral-500 uppercase">縣市 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                        <select 
+                                        <select
                                             className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm appearance-none cursor-pointer"
                                             value={receiver.city}
-                                            onChange={(e) => setReceiver({...receiver, city: e.target.value, district: ""})}
+                                            onChange={(e) => setReceiver({ ...receiver, city: e.target.value, district: "" })}
                                         >
                                             <option value="">請選擇縣市</option>
                                             {Object.keys(taiwanDistricts).map(city => (
@@ -291,10 +329,10 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-neutral-500 uppercase">地區 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                        <select 
+                                        <select
                                             className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm appearance-none cursor-pointer disabled:opacity-50"
                                             value={receiver.district}
-                                            onChange={(e) => setReceiver({...receiver, district: e.target.value})}
+                                            onChange={(e) => setReceiver({ ...receiver, district: e.target.value })}
                                             disabled={!receiver.city}
                                         >
                                             <option value="">請選擇地區</option>
@@ -307,14 +345,14 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
 
                                 <div className="md:col-span-2 space-y-1.5">
                                     <label className="text-xs font-bold text-neutral-500 uppercase">詳細收件地址 / 門市名稱 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="例如：忠孝東路三段1號 或 宜大門市" value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} />
+                                    <input type="text" className="w-full p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 outline-none focus:border-neutral-300 text-sm" placeholder="例如：忠孝東路三段1號 或 宜大門市" value={receiver.address} onChange={e => setReceiver({ ...receiver, address: e.target.value })} />
                                 </div>
 
                                 {paymentMethod === 'credit_card' && (
                                     <div className="md:col-span-2 pt-2 animate-in fade-in slide-in-from-top-1">
                                         <div className="space-y-1.5">
                                             <label className="text-xs font-bold text-neutral-500 uppercase">信用卡卡號 <span className="text-red-500 font-bold ml-0.5">*</span></label>
-                                            <input type="text" className="w-full p-2.5 rounded-lg bg-primary/5 border border-primary/20 outline-none focus:border-primary/40 font-mono text-sm tracking-widest" placeholder="16 碼卡號" value={receiver.cardNumber} onChange={e => setReceiver({...receiver, cardNumber: e.target.value.replace(/\D/g, '').slice(0, 16)})} />
+                                            <input type="text" className="w-full p-2.5 rounded-lg bg-primary/5 border border-primary/20 outline-none focus:border-primary/40 font-mono text-sm tracking-widest" placeholder="16 碼卡號" value={receiver.cardNumber} onChange={e => setReceiver({ ...receiver, cardNumber: e.target.value.replace(/\D/g, '').slice(0, 16) })} />
                                         </div>
                                     </div>
                                 )}
@@ -361,9 +399,9 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
                                     <span className="text-primary font-black">NT${orderTotal.toLocaleString()}</span>
                                 </div>
                             </div>
-                            
-                            <Button 
-                                className="w-full mt-6 rounded-xl py-5 text-sm font-bold bg-[#333] hover:bg-black text-white shadow-sm transition-all" 
+
+                            <Button
+                                className="w-full mt-6 rounded-xl py-5 text-sm font-bold bg-[#333] hover:bg-black text-white shadow-sm transition-all"
                                 onClick={handleCheckoutSubmit}
                             >
                                 確認送出訂單
