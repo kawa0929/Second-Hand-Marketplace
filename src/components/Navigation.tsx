@@ -42,7 +42,6 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
     const listKey = `chatList_${myEmail}`;
     const processedKey = `processedMsgs_${myEmail}`; 
 
-    // ✅ 核心修改：更新紅點數量的函數，直接從資料源同步
     const updateCount = () => {
       try {
         const rawData = localStorage.getItem(listKey);
@@ -54,7 +53,6 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
       } catch (e) {}
     };
 
-    // 🌟 每次切換頁面或載入時，先執行一次同步歸零
     updateCount(); 
 
     let unsubscribe = () => {};
@@ -84,13 +82,11 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
             const newMsg = change.doc.data();
             const msgId = change.doc.id; 
             
-            // ✅ 防呆 1：如果是自己傳的，或已經算過的，絕對不重複計算
             if (newMsg.senderEmail === myEmail) return;
             if (processedMsgs[msgId]) return;
 
-            processedMsgs[msgId] = true; // 立即標記
+            processedMsgs[msgId] = true;
 
-            // ✅ 防呆 2：只有當 user 「不在」聊天頁面時，才增加紅點
             if (currentPageRef.current !== 'chat') {
               const chatIndex = savedList.findIndex((c: any) => 
                 c.email === newMsg.senderEmail || c.id === newMsg.senderEmail
@@ -117,7 +113,6 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
           }
         });
 
-        // 🌟 立即儲存已處理清單，防止下一次 snapshot 抖動導致重複
         localStorage.setItem(processedKey, JSON.stringify(processedMsgs));
 
         if (hasNewUnread) {
@@ -129,23 +124,19 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
       });
     } catch (firebaseError) {}
 
-    // 監聽其他視窗的存儲變動
     window.addEventListener('storage', updateCount);
 
     return () => {
       unsubscribe();
       window.removeEventListener('storage', updateCount);
     };
-    // 🌟 這裡加入 currentPage 依賴，確保切換分頁時會重新執行初始化與同步
   }, [isLoggedIn, currentPage]); 
 
   const handleNavigate = (page: string) => {
     onNavigate(page);
-    setIsMenuOpen(false);
+    setIsMenuOpen(false); // 切換頁面後自動關閉手機選單
   };
 
-  // ... 略過 handlePostClick 等按鈕處理邏輯（與原版相同） ...
-  
   const handleLoginConfirm = () => {
     setShowLoginPrompt(false);
     onNavigate('login');
@@ -161,6 +152,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
               <span>二手好物市集</span>
             </button>
 
+            {/* 電腦版左側選單 */}
             <div className="hidden md:flex items-center gap-2">
               <Button variant={currentPage === 'home' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleNavigate('home')} className="rounded-full">
                 <Home className="w-4 h-4 mr-2" /> 首頁
@@ -182,7 +174,6 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   訊息
-                  {/* 🌟 只有當大於 0 時才渲染，點擊切換後 totalUnread 會變成 0 自動消失 */}
                   {totalUnread > 0 && (
                     <span className="absolute -top-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-md border-2 border-white z-50">
                       {totalUnread > 99 ? '99+' : totalUnread}
@@ -193,32 +184,87 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
             </div>
           </div>
 
-          {/* ... 右側按鈕區域保持不變 ... */}
           <div className="flex items-center gap-2">
-             <div className="hidden md:flex items-center gap-2">
-                <Button variant={currentPage === 'cart' ? 'secondary' : 'ghost'} size="icon" onClick={() => onNavigate('cart')} className="rounded-full relative mr-2">
-                   <ShoppingCart className="w-5 h-5" />
+            {/* 電腦版右側按鈕 */}
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant={currentPage === 'cart' ? 'secondary' : 'ghost'} size="icon" onClick={() => onNavigate('cart')} className="rounded-full relative mr-2">
+                 <ShoppingCart className="w-5 h-5" />
+              </Button>
+              {isLoggedIn ? (
+                <Button variant={currentPage === 'profile' ? 'default' : 'outline'} size="sm" onClick={() => handleNavigate('profile')} className="rounded-full">
+                  <User className="w-4 h-4 mr-2" /> 個人資料
                 </Button>
-                {/* ... 登入/註冊/個人資料按鈕 ... */}
-                {isLoggedIn ? (
-                  <Button variant={currentPage === 'profile' ? 'default' : 'outline'} size="sm" onClick={() => handleNavigate('profile')} className="rounded-full">
-                    <User className="w-4 h-4 mr-2" /> 個人資料
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => handleNavigate('login')} className="rounded-full">
+                    <LogIn className="w-4 h-4 mr-2" /> 登入
                   </Button>
-                ) : (
-                  <>
-                    <Button variant="ghost" size="sm" onClick={() => handleNavigate('login')} className="rounded-full">
-                      <LogIn className="w-4 h-4 mr-2" /> 登入
-                    </Button>
-                    <Button variant="default" size="sm" onClick={() => handleNavigate('register')} className="rounded-full">
-                      <UserPlus className="w-4 h-4 mr-2" /> 註冊
-                    </Button>
-                  </>
-                )}
-             </div>
+                  <Button variant="default" size="sm" onClick={() => handleNavigate('register')} className="rounded-full">
+                    <UserPlus className="w-4 h-4 mr-2" /> 註冊
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* ✨ 補上：手機版漢堡按鈕 (md:hidden 讓它只在手機版顯示) ✨ */}
+            <div className="md:hidden flex items-center">
+              <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-      {/* ... 手機版選單邏輯保持不變 ... */}
+
+      {/* ✨ 補上：手機版下拉選單邏輯 ✨ */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-white/70 backdrop-blur-md border border-white/40 shadow-2xl absolute left-4 right-4 top-[76px] rounded-2xl p-1 z-40">
+          <div className="px-4 pt-2 pb-4 space-y-2 flex flex-col">
+            <Button variant={currentPage === 'home' ? 'secondary' : 'ghost'} className="justify-start w-full" onClick={() => handleNavigate('home')}>
+              <Home className="w-4 h-4 mr-3" /> 首頁
+            </Button>
+            <Button variant={currentPage === 'products' ? 'secondary' : 'ghost'} className="justify-start w-full" onClick={() => handleNavigate('products')}>
+              <Package className="w-4 h-4 mr-3" /> 瀏覽商品
+            </Button>
+            <Button variant={currentPage === 'post' ? 'secondary' : 'ghost'} className="justify-start w-full" onClick={() => handleNavigate('post')}>
+              <PlusCircle className="w-4 h-4 mr-3" /> 刊登商品
+            </Button>
+
+            {isLoggedIn && (
+              <Button variant={currentPage === 'chat' ? 'secondary' : 'ghost'} className="justify-start w-full" onClick={() => handleNavigate('chat')}>
+                <MessageCircle className="w-4 h-4 mr-3" /> 訊息
+                {totalUnread > 0 && (
+                  <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-md">
+                    {totalUnread > 99 ? '99+' : totalUnread}
+                  </span>
+                )}
+              </Button>
+            )}
+
+            <div className="h-px bg-gray-100 my-2" />
+
+            <Button variant={currentPage === 'cart' ? 'secondary' : 'ghost'} className="justify-start w-full" onClick={() => handleNavigate('cart')}>
+              <ShoppingCart className="w-4 h-4 mr-3" /> 購物車
+            </Button>
+
+            {isLoggedIn ? (
+              <Button variant={currentPage === 'profile' ? 'default' : 'ghost'} className="justify-start w-full" onClick={() => handleNavigate('profile')}>
+                <User className="w-4 h-4 mr-3" /> 個人資料
+              </Button>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Button variant="outline" className="w-full" onClick={() => handleNavigate('login')}>
+                  <LogIn className="w-4 h-4 mr-2" /> 登入
+                </Button>
+                <Button variant="default" className="w-full" onClick={() => handleNavigate('register')}>
+                  <UserPlus className="w-4 h-4 mr-2" /> 註冊
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <LoginPromptDialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt} onConfirm={handleLoginConfirm} description={promptMessage} />
     </nav>
   );
