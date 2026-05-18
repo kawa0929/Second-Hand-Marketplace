@@ -253,7 +253,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-[#BCE1DF]/25">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Button 
           variant="ghost" 

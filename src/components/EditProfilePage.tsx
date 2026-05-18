@@ -90,7 +90,7 @@ export function EditProfilePage({ onNavigate }: EditProfilePageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-[#BCE1DF]/25">
       <div className="absolute top-6 right-6 z-10">
         <button
           onClick={() => onNavigate('profile')}

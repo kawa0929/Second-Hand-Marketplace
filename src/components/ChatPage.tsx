@@ -139,7 +139,7 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
 
       // 同步更新左側列表的最後一則訊息
       if (loadedMessages.length > 0) {
-        const lastMsg = loadedMessages[loadedMessages.length - 1];
+        const lastMsg = loadedMessages[loadedMessages.length - 1] as any;
         const displayBody = lastMsg.type === 'product' ? "[商品資訊]" : (lastMsg.type === 'image' ? "[圖片]" : lastMsg.text);
         const isFromPartner = lastMsg.senderEmail !== myEmail;
 
@@ -209,6 +209,7 @@ export function ChatPage({ onNavigate }: ChatPageProps) {
     const partnerEmail = selectedChat.email || selectedChat.id || 'unknown';
     const emails = [myEmail, partnerEmail].sort();
     const roomId = `${emails[0]}_${emails[1]}`;
+    
 
     try {
       if (pendingProduct) {

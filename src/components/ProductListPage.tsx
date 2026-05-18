@@ -143,7 +143,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
       : "所有商品";
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-gray-900 antialiased">
+    <div className="min-h-screen flex flex-col bg-[#BCE1DF]/25 text-gray-900 antialiased">
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 sm:px-10 py-10">
 
         {/* ── Back link — FIXED: "BACK" route + "返回" label ── */}
