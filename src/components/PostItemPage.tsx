@@ -58,8 +58,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (images.length >= 3) {
-      toast.error("最多只能上傳 3 張照片喔！");
+    if (images.length >= 4) {
+      toast.error("最多只能上傳 4 張照片喔！");
       return;
     }
 
@@ -164,8 +164,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (images.length === 0) {
-      toast.error("請至少上傳一張商品照片！");
+    if (images.length < 2) {
+      toast.error("請最少上傳兩張照片以完成刊登！");
       return;
     }
     if (!title.trim()) {
@@ -285,7 +285,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
               </div>
 
               <p className="text-sm text-muted-foreground mb-4">
-                最多可上傳 3 張照片。第一張將作為封面圖。
+                最多可上傳 4 張照片。第一張將作為封面圖。
               </p>
 
               <div className="grid grid-cols-3 gap-4">
@@ -307,7 +307,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                   </div>
                 ))}
 
-                {images.length < 3 && (
+                {images.length < 4 && (
                   <button
                     type="button"
                     disabled={isUploading}
