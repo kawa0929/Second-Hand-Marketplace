@@ -285,7 +285,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
               </div>
 
               <p className="text-sm text-muted-foreground mb-4">
-                最多可上傳 4 張照片。第一張將作為封面圖。
+                最多可上傳 4 張照片。第一張將作為封面圖，最少要上傳兩張照片以完成刊登。
               </p>
 
               <div className="grid grid-cols-3 gap-4">
