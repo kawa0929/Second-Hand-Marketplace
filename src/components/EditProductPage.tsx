@@ -37,7 +37,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
     useEffect(() => {
         const fetchProduct = async () => {
             try {
-                const res = await fetch(`http://localhost:3001/api/product/${productId}`);
+                const res = await fetch(`/api/product/${productId}`);
                 const data = await res.json();
                 if (data.success) {
                     const p = data.product;
@@ -163,7 +163,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
 
         for (let i = 0; i < variations.length; i++) {
             const v = variations[i];
-            
+
             if (isMultiVariation && !v.name.trim()) {
                 return toast.error(`請填寫第 ${i + 1} 個規格的名稱！`);
             }
@@ -187,7 +187,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         };
 
         try {
-            const response = await fetch(`http://localhost:3001/api/product/${productId}`, {
+            const response = await fetch(`/api/product/${productId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)
@@ -205,7 +205,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
     const handleToggleStatus = async () => {
         const newStatus = status === "上架中" ? "已下架" : "上架中";
         try {
-            const response = await fetch(`http://localhost:3001/api/product/${productId}/status`, {
+            const response = await fetch(`/api/product/${productId}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -225,7 +225,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         if (!confirmDelete) return;
 
         try {
-            const response = await fetch(`http://localhost:3001/api/product/${productId}`, {
+            const response = await fetch(`/api/product/${productId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

@@ -41,7 +41,7 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
     }
     setIsSending(true);
     try {
-      const response = await fetch('http://localhost:3001/api/send-otp', { // 👈 檢查這串字
+      const response = await fetch('/api/send-otp', { // 👈 檢查這串字
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -75,7 +75,7 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
 
     try {
       // 步驟 A：先驗證驗證碼對不對
-      const verifyResponse = await fetch('http://localhost:3001/api/verify-otp', {
+      const verifyResponse = await fetch('/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: userInputCode })
@@ -88,7 +88,7 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
       }
 
       // 步驟 B：驗證碼對了！我們把所有資料打包丟給後端的 /api/register
-      const registerResponse = await fetch('http://localhost:3001/api/register', {
+      const registerResponse = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

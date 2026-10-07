@@ -56,14 +56,14 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
       setCurrentUser(user);
 
       // 🌟 核心修正：1. 抓取資料庫內最新的個人檔案 (含頭貼網址)
-      fetch(`http://localhost:3001/api/user/${user.email}`)
+      fetch(`/api/user/${user.email}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setCurrentUser(data.user);
         });
 
       // 🌟 核心修正：2. 修正商品路徑，並轉換格式符合妳原本的 ListingItem 介面
-      fetch(`http://localhost:3001/api/products/seller/${user.email}`)
+      fetch(`/api/products/seller/${user.email}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -81,7 +81,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
         .catch(err => console.error("抓取商品失敗:", err));
 
       // 3. 撈取賣場統計數據
-      fetch(`http://localhost:3001/api/user-stats/${user.email}`)
+      fetch(`/api/user-stats/${user.email}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setSellerStats(data.stats);
@@ -89,7 +89,7 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
         .catch(err => console.error("抓取統計失敗:", err));
 
       // 4. 撈取我的收藏清單
-      fetch(`http://localhost:3001/api/favorites/${user.email}`)
+      fetch(`/api/favorites/${user.email}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setFavorites(data.favorites);

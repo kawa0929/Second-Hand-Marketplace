@@ -26,7 +26,7 @@ export function ForgotPasswordPage({ onNavigate }: ForgotPasswordPageProps) {
         }
         setIsSending(true);
         try {
-            const response = await fetch('http://localhost:3001/api/send-otp', {
+            const response = await fetch('/api/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -60,7 +60,7 @@ export function ForgotPasswordPage({ onNavigate }: ForgotPasswordPageProps) {
         setIsLoading(true);
         try {
             // 步驟 A：先驗證驗證碼對不對 (沿用註冊時的驗證 API)
-            const verifyResponse = await fetch('http://localhost:3001/api/verify-otp', {
+            const verifyResponse = await fetch('/api/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, code: userInputCode })
@@ -74,7 +74,7 @@ export function ForgotPasswordPage({ onNavigate }: ForgotPasswordPageProps) {
             }
 
             // 步驟 B：驗證碼對了！呼叫新的「重設密碼」API
-            const resetResponse = await fetch('http://localhost:3001/api/reset-password', {
+            const resetResponse = await fetch('/api/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, newPassword })

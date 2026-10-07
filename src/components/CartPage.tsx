@@ -26,7 +26,7 @@ interface CartItem {
 export function CartPage({ onNavigate }: CartPageProps) {
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
+
     // 🌟 新增：用來記錄目前「被勾選」要結帳的商品 ID
     const [selectedCartIds, setSelectedCartIds] = useState<string[]>([]);
 
@@ -39,7 +39,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
         const user = JSON.parse(userStr);
 
         try {
-            const res = await fetch(`http://localhost:3001/api/cart/${user.email}`);
+            const res = await fetch(`/api/cart/${user.email}`);
             const data = await res.json();
             if (data.success) {
                 setCartItems(data.cart);
@@ -68,7 +68,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
         const user = JSON.parse(userStr);
 
         try {
-            const res = await fetch('http://localhost:3001/api/cart/add', {
+            const res = await fetch('/api/cart/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -87,7 +87,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
 
     const removeItem = async (cartId: string) => {
         try {
-            const res = await fetch(`http://localhost:3001/api/cart/${cartId}`, {
+            const res = await fetch(`/api/cart/${cartId}`, {
                 method: 'DELETE'
             });
             const data = await res.json();
@@ -104,7 +104,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
 
     // 取得所有未下架的有效商品
     const validItems = cartItems.filter(item => item.status !== '已下架');
-    
+
     // 🌟 新增邏輯：將商品依照「賣家(seller)」進行分群
     const groupedCartItems = Object.entries(
         validItems.reduce((acc, item) => {
@@ -119,7 +119,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
     const toggleItemSelection = (cartId: string, seller: string) => {
         // 先檢查目前已經打勾的商品，是不是屬於「其他賣家」
         const currentlySelected = validItems.filter(i => selectedCartIds.includes(i.cartId));
-        
+
         if (currentlySelected.length > 0 && currentlySelected[0].seller !== seller) {
             toast.error("不同賣家的商品無法合併結帳喔！系統已自動為您切換賣家。");
             // 直接切換為只勾選當前點擊的這個商品
@@ -127,7 +127,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
             return;
         }
 
-        setSelectedCartIds(prev => 
+        setSelectedCartIds(prev =>
             prev.includes(cartId) ? prev.filter(id => id !== cartId) : [...prev, cartId]
         );
     };
@@ -202,7 +202,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
                 ) : (
                     <div className="grid lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-8">
-                            
+
                             {/* 🌟 依照賣家群組來渲染商品清單 */}
                             {groupedCartItems.map(([seller, items]) => {
                                 // 判斷這個賣家的商品是否「全選」了
@@ -210,11 +210,11 @@ export function CartPage({ onNavigate }: CartPageProps) {
 
                                 return (
                                     <div key={seller} className="bg-white rounded-3xl p-4 sm:p-6 border border-border shadow-sm">
-                                        
+
                                         {/* 賣家標題列 */}
                                         <div className="flex items-center gap-3 mb-4 pb-4 border-b border-neutral-100">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 className="w-5 h-5 rounded border-neutral-300 text-primary focus:ring-primary accent-primary cursor-pointer"
                                                 checked={isSellerAllSelected}
                                                 onChange={() => toggleSellerSelection(seller, items)}
@@ -230,10 +230,10 @@ export function CartPage({ onNavigate }: CartPageProps) {
 
                                                 return (
                                                     <div key={item.cartId} className="flex items-center gap-4">
-                                                        
+
                                                         {/* 單一商品的勾選框 */}
-                                                        <input 
-                                                            type="checkbox" 
+                                                        <input
+                                                            type="checkbox"
                                                             className="w-5 h-5 rounded border-neutral-300 text-primary focus:ring-primary accent-primary cursor-pointer flex-shrink-0"
                                                             checked={isSelected}
                                                             onChange={() => toggleItemSelection(item.cartId, seller)}
@@ -297,7 +297,7 @@ export function CartPage({ onNavigate }: CartPageProps) {
                                     </div>
                                 );
                             })}
-                            
+
                             {/* 顯示已下架商品 (不可勾選，僅供刪除) */}
                             {cartItems.filter(i => i.status === '已下架').length > 0 && (
                                 <div className="bg-neutral-100 rounded-3xl p-4 sm:p-6 border border-border opacity-70">

@@ -154,7 +154,7 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
             localStorage.setItem('user_transactions', JSON.stringify(history));
 
             // 呼叫後端結帳 API
-            const response = await fetch('http://localhost:3001/api/checkout', {
+            const response = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(checkoutData)

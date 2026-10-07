@@ -61,7 +61,7 @@ export function EditProfilePage({ onNavigate }: EditProfilePageProps) {
         avatarUrl // 這裡現在只會傳純文字的 Emoji，超級省空間！
       };
 
-      const response = await fetch('http://localhost:3001/api/update-profile', {
+      const response = await fetch('/api/update-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)

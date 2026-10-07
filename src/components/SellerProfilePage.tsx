@@ -30,14 +30,14 @@ export function SellerProfilePage({ onNavigate, sellerEmail }: SellerProfilePage
 
         const fetchSellerData = async () => {
             try {
-                const statsRes = await fetch(`http://localhost:3001/api/user-stats/${sellerEmail}`);
+                const statsRes = await fetch(`/api/user-stats/${sellerEmail}`);
                 const statsData = await statsRes.json();
                 if (statsData.success) {
                     setStats(statsData.stats);
                     setSellerInfo(statsData.userInfo);
                 }
 
-                const productsRes = await fetch(`http://localhost:3001/api/user-products/${sellerEmail}`);
+                const productsRes = await fetch(`/api/user-products/${sellerEmail}`);
                 const productsData = await productsRes.json();
                 if (productsData.success) {
                     setProducts(productsData.products);

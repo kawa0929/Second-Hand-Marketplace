@@ -82,7 +82,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const textY = useTransform(scrollY, [0, 300], [0, 50]);
 
   useEffect(() => {
-    fetch("http://localhost:3001/api/products")
+    fetch("/api/products")
       .then(r => r.json())
       .then(data => { if (data.success) setLatestProducts(data.products.slice(0, 8)); })
       .catch(err => console.error("獲取商品失敗:", err))
@@ -91,7 +91,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     const userStr = localStorage.getItem("user");
     if (userStr) {
       const user = JSON.parse(userStr);
-      fetch(`http://localhost:3001/api/favorites/${user.email}`)
+      fetch(`/api/favorites/${user.email}`)
         .then(r => r.json())
         .then(data => { if (data.success) setUserFavorites(data.favorites.map((f: any) => f.id)); });
     }
@@ -105,7 +105,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     if (product.status === "已下架") { toast.error("此商品已下架，無法加入收藏喔！"); return; }
     if (user.email === product.sellerEmail) { toast.error("這是您自己刊登的商品，不需要收藏啦！"); return; }
     try {
-      const res = await fetch("http://localhost:3001/api/favorites/toggle", {
+      const res = await fetch("/api/favorites/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email, productId: product.id }),

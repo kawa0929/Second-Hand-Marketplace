@@ -19,7 +19,7 @@ import { EditProductPage } from "./components/EditProductPage";
 import { SellerProfilePage } from "./components/SellerProfilePage";
 import { CartPage } from "./components/CartPage";
 import { CheckoutPage } from "./components/CheckoutPage";
-import { OrderDetailPage } from "./components/OrderDetailPage"; 
+import { OrderDetailPage } from "./components/OrderDetailPage";
 import { SellerDashboardPage } from "./components/SellerDashboardPage";
 import { toast } from "sonner";
 
@@ -35,10 +35,10 @@ interface Route {
 export default function App() {
   // 🌟 核心修改：改用陣列來儲存歷史紀錄足跡
   const [history, setHistory] = useState<Route[]>([{ page: 'home' }]);
-  
+
   // 🌟 目前顯示的路由永遠是陣列的最後一個
   const currentRoute = history[history.length - 1];
-  
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [aiGeneratedData, setAiGeneratedData] = useState<any>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -127,7 +127,7 @@ export default function App() {
       return;
     }
 
-    fetch('http://localhost:3001/api/ai-analyze-image', {
+    fetch('/api/ai-analyze-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64: capturedImage })
@@ -161,8 +161,8 @@ export default function App() {
 
   // 判斷是否隱藏導覽列的白名單
   const shouldHideNav = [
-    'login', 'register', 'edit-profile', 'edit-product', 
-    'ai-camera', 'ai-processing', 'ai-confirmation', 
+    'login', 'register', 'edit-profile', 'edit-product',
+    'ai-camera', 'ai-processing', 'ai-confirmation',
     'seller-profile', 'checkout', 'order-detail'
   ].includes(currentRoute.page);
 
@@ -181,108 +181,108 @@ export default function App() {
       {/* 判斷：如果「沒有隱藏導航列」且「不是首頁」，就加上 pt-24 預留空間 */}
       <main className={`flex-1 ${!shouldHideNav && currentRoute.page !== 'home' ? 'pt-15' : ''}`}>
 
-      {/* 🌟 以下所有頁面渲染邏輯均改為判斷 currentRoute.page */}
+        {/* 🌟 以下所有頁面渲染邏輯均改為判斷 currentRoute.page */}
 
-      {currentRoute.page === 'home' && (
-        <HomePage onNavigate={handleNavigate} isLoggedIn={isLoggedIn} />
-      )}
+        {currentRoute.page === 'home' && (
+          <HomePage onNavigate={handleNavigate} isLoggedIn={isLoggedIn} />
+        )}
 
-      {currentRoute.page === 'login' && (
-        <LoginPage onNavigate={handleNavigate} onLogin={handleLogin} />
-      )}
+        {currentRoute.page === 'login' && (
+          <LoginPage onNavigate={handleNavigate} onLogin={handleLogin} />
+        )}
 
-      {currentRoute.page === 'register' && (
-        <RegisterPage onNavigate={handleNavigate} onLogin={handleLogin} />
-      )}
+        {currentRoute.page === 'register' && (
+          <RegisterPage onNavigate={handleNavigate} onLogin={handleLogin} />
+        )}
 
-      {currentRoute.page === 'products' && (
-        <ProductListPage
-          onNavigate={handleNavigate}
-          initialSearch={searchKeyword}
-        />
-      )}
+        {currentRoute.page === 'products' && (
+          <ProductListPage
+            onNavigate={handleNavigate}
+            initialSearch={searchKeyword}
+          />
+        )}
 
-      {currentRoute.page === 'product-detail' && (
-        <ProductDetailPage
-          onNavigate={handleNavigate}
-          productId={currentRoute.data} // 從 history data 取得 ID
-        />
-      )}
+        {currentRoute.page === 'product-detail' && (
+          <ProductDetailPage
+            onNavigate={handleNavigate}
+            productId={currentRoute.data} // 從 history data 取得 ID
+          />
+        )}
 
-      {currentRoute.page === 'seller-profile' && (
-        <SellerProfilePage
-          onNavigate={handleNavigate}
-          sellerEmail={currentRoute.data} // 從 history data 取得 email
-        />
-      )}
+        {currentRoute.page === 'seller-profile' && (
+          <SellerProfilePage
+            onNavigate={handleNavigate}
+            sellerEmail={currentRoute.data} // 從 history data 取得 email
+          />
+        )}
 
-      {currentRoute.page === 'cart' && (
-        <CartPage onNavigate={handleNavigate} />
-      )}
+        {currentRoute.page === 'cart' && (
+          <CartPage onNavigate={handleNavigate} />
+        )}
 
-      {currentRoute.page === 'post' && (
-        <PostItemPage
-          onNavigate={handleNavigate}
-          aiGeneratedData={aiGeneratedData}
-          previousPage={postOrigin}
-        />
-      )}
+        {currentRoute.page === 'post' && (
+          <PostItemPage
+            onNavigate={handleNavigate}
+            aiGeneratedData={aiGeneratedData}
+            previousPage={postOrigin}
+          />
+        )}
 
-      {/* 🌟 結帳頁面：不再需要傳 productId，因為它會從 localStorage 撈取 checkout_items */}
-      {currentRoute.page === 'checkout' && (
-        <CheckoutPage onNavigate={handleNavigate} />
-      )}
+        {/* 🌟 結帳頁面：不再需要傳 productId，因為它會從 localStorage 撈取 checkout_items */}
+        {currentRoute.page === 'checkout' && (
+          <CheckoutPage onNavigate={handleNavigate} />
+        )}
 
-      {currentRoute.page === 'profile' && (
-        <UserProfilePage onNavigate={handleNavigate} onLogout={handleLogout} />
-      )}
+        {currentRoute.page === 'profile' && (
+          <UserProfilePage onNavigate={handleNavigate} onLogout={handleLogout} />
+        )}
 
-      {currentRoute.page === 'edit-profile' && (
-        <EditProfilePage onNavigate={handleNavigate} />
-      )}
+        {currentRoute.page === 'edit-profile' && (
+          <EditProfilePage onNavigate={handleNavigate} />
+        )}
 
-      {currentRoute.page === 'edit-product' && (
-        <EditProductPage onNavigate={handleNavigate} productId={currentRoute.data} />
-      )}
+        {currentRoute.page === 'edit-product' && (
+          <EditProductPage onNavigate={handleNavigate} productId={currentRoute.data} />
+        )}
 
-      {currentRoute.page === 'chat' && (
-        <ChatPage onNavigate={handleNavigate} />
-      )}
+        {currentRoute.page === 'chat' && (
+          <ChatPage onNavigate={handleNavigate} />
+        )}
 
-      {currentRoute.page === 'transactions' && (
-        <TransactionHistoryPage onNavigate={handleNavigate} />
-      )}
+        {currentRoute.page === 'transactions' && (
+          <TransactionHistoryPage onNavigate={handleNavigate} />
+        )}
 
-      {currentRoute.page === 'order-detail' && (
-        <OrderDetailPage onNavigate={handleNavigate} />
-      )}
+        {currentRoute.page === 'order-detail' && (
+          <OrderDetailPage onNavigate={handleNavigate} />
+        )}
 
-      {currentRoute.page === 'ai-camera' && (
-        <AICameraPage onNavigate={handleNavigate} onCapture={handleAICapture} />
-      )}
+        {currentRoute.page === 'ai-camera' && (
+          <AICameraPage onNavigate={handleNavigate} onCapture={handleAICapture} />
+        )}
 
-      {currentRoute.page === 'ai-processing' && (
-        <AIProcessingPage onComplete={handleAIProcessingComplete} />
-      )}
+        {currentRoute.page === 'ai-processing' && (
+          <AIProcessingPage onComplete={handleAIProcessingComplete} />
+        )}
 
-      {currentRoute.page === 'ai-confirmation' && aiGeneratedData && (
-        <AIConfirmationPage
-          onNavigate={handleNavigate}
-          productData={aiGeneratedData}
-          onSkip={() => {
-            setAiGeneratedData({ image: aiGeneratedData.image }); 
-            handleNavigate('post');
-          }}
-        />
-      )}
-      
-      {currentRoute.page === 'forgot-password' && (
-        <ForgotPasswordPage onNavigate={(page) => handleNavigate(page)} />
-      )}
+        {currentRoute.page === 'ai-confirmation' && aiGeneratedData && (
+          <AIConfirmationPage
+            onNavigate={handleNavigate}
+            productData={aiGeneratedData}
+            onSkip={() => {
+              setAiGeneratedData({ image: aiGeneratedData.image });
+              handleNavigate('post');
+            }}
+          />
+        )}
 
-      {currentRoute.page === 'dashboard' && (
-        <SellerDashboardPage onNavigate={handleNavigate} />
-      )}
+        {currentRoute.page === 'forgot-password' && (
+          <ForgotPasswordPage onNavigate={(page) => handleNavigate(page)} />
+        )}
+
+        {currentRoute.page === 'dashboard' && (
+          <SellerDashboardPage onNavigate={handleNavigate} />
+        )}
 
       </main>
       {/* 🌟 記得在這裡把 main 關閉 */}

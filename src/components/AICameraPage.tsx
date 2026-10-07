@@ -1,65 +1,65 @@
-import { ArrowLeft, Zap, ZapOff, Image } from "lucide-react"; // 🌟 新增：Image 圖示
+import { ArrowLeft, Zap, ZapOff, Image } from "lucide-react";
 import { Button } from "./ui/button";
-import { useState, useRef } from "react"; // 🌟 新增：useRef
+import { useState, useRef } from "react";
 
 interface AICameraPageProps {
   onNavigate: (page: string) => void;
-  onCapture: (imageUrl?: string) => void; // 🌟 加上 imageUrl?: string
+  onCapture: (imageUrl?: string) => void;
 }
 
 export function AICameraPage({ onNavigate, onCapture }: AICameraPageProps) {
   const [flashEnabled, setFlashEnabled] = useState(false);
 
-  // 🌟 新增：用來觸發隱藏檔案輸入框的 Ref
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // 建立兩個獨立的 Ref，分別對應「相機」與「相簿」
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const albumInputRef = useRef<HTMLInputElement>(null);
 
-  // Mock camera preview image
-  const mockCameraPreview = "https://images.unsplash.com/photo-1632222623518-bbbd5f1f2489?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9kdWN0JTIwcGhvdG9ncmFwaHklMjBjYW1lcmF8ZW58MXx8fHwxNz5709723fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
-
-  // 🌟 新增：模擬從相簿上傳的邏輯
+  // 共用的圖片處理邏輯
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      console.log("選擇了圖片：", file.name);
-
-      // 🌟 新增：使用 FileReader 將圖片轉為 Base64 字串
       const reader = new FileReader();
       reader.onloadend = () => {
-        // 讀取完成後，這就是完整的 Base64 字串啦！
         const base64String = reader.result as string;
-
-        // 🌟 核心整合：把這個 Base64 字串（包含圖片內容）傳遞出去！
-        onCapture(base64String);
+        onCapture(base64String); // 拍完或選完後直接轉交給 AI
       };
-
-      // 開始讀取圖片資料
       reader.readAsDataURL(file);
     }
   };
 
+  const standbyBackground = "https://images.unsplash.com/photo-1632222623518-bbbd5f1f2489?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9kdWN0JTIwcGhvdG9ncmFwaHklMjBjYW1lcmF8ZW58MXx8fHwxNz5709723fDA&ixlib=rb-4.1.0&q=80&w=1080";
+
   return (
     <div className="fixed inset-0 bg-black z-50">
-
-      {/* 🌟 新增：隱藏的檔案輸入框，用來開啟相簿 */}
+      {/* 隱藏輸入框 1：相機 (加上 capture="environment" 屬性) */}
       <input
         type="file"
-        ref={fileInputRef}
+        ref={cameraInputRef}
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* 隱藏輸入框 2：相簿 */}
+      <input
+        type="file"
+        ref={albumInputRef}
         accept="image/*"
         className="hidden"
         onChange={handleFileChange}
       />
 
-      {/* Camera Preview Background */}
+      {/* 待機背景：因為不會顯示真實預覽，改為稍微暗化的示意背景 */}
       <div className="absolute inset-0">
         <img
-          src={mockCameraPreview}
-          alt="相機預覽"
-          className="w-full h-full object-cover"
+          src={standbyBackground}
+          alt="待機背景"
+          className="w-full h-full object-cover opacity-40"
         />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
 
-      {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-4 z-10">
         <div className="flex items-center justify-between">
           <Button
@@ -70,70 +70,48 @@ export function AICameraPage({ onNavigate, onCapture }: AICameraPageProps) {
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>
-
-          <h2 className="text-white">AI 智慧上傳 – 拍照模式</h2>
-
+          <h2 className="text-white">AI 智慧上傳</h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setFlashEnabled(!flashEnabled)}
             className="text-white hover:bg-white/20 rounded-full"
           >
-            {flashEnabled ? (
-              <Zap className="w-6 h-6 fill-white" />
-            ) : (
-              <ZapOff className="w-6 h-6" />
-            )}
+            {flashEnabled ? <Zap className="w-6 h-6 fill-white" /> : <ZapOff className="w-6 h-6" />}
           </Button>
         </div>
       </div>
 
-      {/* Center Focus Frame */}
-      <div className="absolute inset-0 flex items-center justify-center px-8">
+      {/* 中間裝飾外框與提示文字更新 */}
+      <div className="absolute inset-0 flex items-center justify-center px-8 pointer-events-none">
         <div className="relative w-full max-w-sm aspect-square">
-          {/* Focus Frame */}
-          <div className="absolute inset-0 border-4 border-white rounded-3xl shadow-2xl">
-            {/* Corner Accents */}
-            <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-3xl" />
-            <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-3xl" />
-            <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-3xl" />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-3xl" />
-          </div>
-
-          {/* Hint Text */}
+          <div className="absolute inset-0 border-4 border-white/50 rounded-3xl" />
           <div className="absolute -bottom-16 left-0 right-0 text-center">
             <p className="text-white text-sm drop-shadow-lg">
-              請將商品置於框內，AI 將自動分析並填寫資訊
+              點擊下方快門開啟相機，或選擇相簿圖片
             </p>
           </div>
         </div>
       </div>
 
-      {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-8 z-10">
         <div className="flex items-center justify-center gap-8">
-          {/* Thumbnail Preview */}
-          <div className="w-14 h-14 rounded-xl border-2 border-white/50 overflow-hidden bg-neutral-800">
-            <img
-              src={mockCameraPreview}
-              alt="縮圖預覽"
-              className="w-full h-full object-cover opacity-50"
-            />
-          </div>
+          {/* 左側佔位符保持版面平衡 */}
+          <div className="w-14 h-14" />
 
-          {/* Shutter Button */}
+          {/* 中間大快門：觸發相機 */}
           <button
-            onClick={() => onCapture()}
+            onClick={() => cameraInputRef.current?.click()}
             className="relative w-20 h-20 rounded-full bg-white shadow-2xl hover:scale-105 transition-transform active:scale-95"
           >
             <div className="absolute inset-2 rounded-full border-4 border-black" />
           </button>
 
-          {/* 🌟 新增：從相簿上傳按鈕 (取代原本的 Spacer) */}
+          {/* 右側按鈕：觸發相簿 */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => albumInputRef.current?.click()}
             className="w-14 h-14 rounded-full text-white/70 hover:text-white hover:bg-white/20 active:scale-95"
           >
             <Image className="w-8 h-8" />

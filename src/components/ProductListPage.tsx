@@ -63,7 +63,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      let url = `http://localhost:3001/api/products?`;
+      let url = `/api/products?`;
       if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
       if (categoryFilter !== "all") url += `category=${categoryFilter}&`;
       url += `sort=${sortOrder}`;
@@ -82,7 +82,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     if (!userStr) return;
     const user = JSON.parse(userStr);
     try {
-      const res = await fetch(`http://localhost:3001/api/favorites/${user.email}`);
+      const res = await fetch(`/api/favorites/${user.email}`);
       const data = await res.json();
       if (data.success) setUserFavorites(data.favorites.map((f: any) => f.id));
     } catch (e) { console.error("載入收藏清單失敗", e); }
@@ -106,7 +106,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     if (product.status === "已下架") { toast.error("此商品已下架，無法加入收藏喔！"); return; }
     if (user.email === product.sellerEmail) { toast.error("這是您自己刊登的商品，不需要收藏啦！"); return; }
     try {
-      const res = await fetch("http://localhost:3001/api/favorites/toggle", {
+      const res = await fetch("/api/favorites/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email, productId: product.id }),

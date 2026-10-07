@@ -237,7 +237,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     };
 
     try {
-      const response = await fetch('http://localhost:3001/api/post-item', {
+      const response = await fetch('/api/post-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(postData)

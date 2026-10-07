@@ -27,8 +27,8 @@ export function TransactionHistoryPage({ onNavigate }: TransactionHistoryPagePro
         try {
             // 判斷要呼叫「買家 API」還是「賣家 API」
             const endpoint = type === 'purchases'
-                ? `http://localhost:3001/api/orders/buyer/${user.email}`
-                : `http://localhost:3001/api/orders/seller/${user.email}`;
+                ? `/api/orders/buyer/${user.email}`
+                : `/api/orders/seller/${user.email}`;
 
             const res = await fetch(endpoint);
             const data = await res.json();

@@ -39,7 +39,7 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
 
             try {
                 // 2. 向後端要該賣家的所有商品
-                const res = await fetch(`http://localhost:3001/api/products?sellerEmail=${user.email}`);
+                const res = await fetch(`/api/products?sellerEmail=${user.email}`);
                 const data = await res.json();
 
                 if (data.success && data.products) {

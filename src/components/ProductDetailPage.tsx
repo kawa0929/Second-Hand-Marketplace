@@ -64,7 +64,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/product/${productId}`);
+        const res = await fetch(`/api/product/${productId}`);
         const data = await res.json();
         if (data.success) {
           setProduct(data.product);
@@ -87,7 +87,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
       if (!userStr) return;
       const user = JSON.parse(userStr);
       try {
-        const res = await fetch(`http://localhost:3001/api/favorites/check?email=${user.email}&productId=${productId}`);
+        const res = await fetch(`/api/favorites/check?email=${user.email}&productId=${productId}`);
         const data = await res.json();
         setIsFavorite(data.isFavorite);
       } catch (e) {
@@ -103,7 +103,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     if (productId) {
       const viewedProducts = JSON.parse(localStorage.getItem('viewedProducts') || '[]');
       if (!viewedProducts.includes(productId)) {
-        fetch(`http://localhost:3001/api/products/${productId}/view`, {
+        fetch(`/api/products/${productId}/view`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         })
@@ -146,7 +146,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     }
 
     try {
-      const res = await fetch('http://localhost:3001/api/favorites/toggle', {
+      const res = await fetch('/api/favorites/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: currentUser.email, productId: productId })
@@ -178,7 +178,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     const chatImages = product.images && product.images.length > 0 ? product.images : ["https://via.placeholder.com/800"];
 
     const chatContext = {
-      id: product.sellerEmail, 
+      id: product.sellerEmail,
       name: chatSellerName,
       avatar: chatSellerAvatar,
       email: product.sellerEmail,
@@ -212,7 +212,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     const currentStock = selectedVariation ? selectedVariation.stock : (product.stock || 1);
 
     try {
-      const checkRes = await fetch(`http://localhost:3001/api/cart/${currentUser.email}`);
+      const checkRes = await fetch(`/api/cart/${currentUser.email}`);
       const checkData = await checkRes.json();
 
       if (checkData.success) {
@@ -228,7 +228,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
         }
       }
 
-      const res = await fetch('http://localhost:3001/api/cart/add', {
+      const res = await fetch('/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,21 +270,21 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
     const checkoutVariationName = selectedVariation ? selectedVariation.name : "";
     const checkoutImage = product.images && product.images.length > 0 ? product.images[mainImageIndex] : "https://via.placeholder.com/800";
     const checkoutSellerName = product.sellerInfo?.fullname || (product.sellerEmail ? product.sellerEmail.split('@')[0] : "未知賣家");
-    
+
     // 組合出商品標題 (如果有選款式，把它加在標題後方)
-    const displayTitle = checkoutVariationName 
-        ? `${product.title} - ${checkoutVariationName}` 
-        : product.title;
+    const displayTitle = checkoutVariationName
+      ? `${product.title} - ${checkoutVariationName}`
+      : product.title;
 
     // 將資料包裝成結帳頁面需要的陣列格式
     const checkoutData = [{
-        id: productId,
-        title: displayTitle,
-        price: checkoutPrice,
-        image: checkoutImage,
-        seller: checkoutSellerName,
-        quantity: 1,
-        variationName: checkoutVariationName || "單一款式"
+      id: productId,
+      title: displayTitle,
+      price: checkoutPrice,
+      image: checkoutImage,
+      seller: checkoutSellerName,
+      quantity: 1,
+      variationName: checkoutVariationName || "單一款式"
     }];
 
     // 🌟 強制覆寫 localStorage 內的結帳商品資料，避免讀到舊的
@@ -314,7 +314,7 @@ export function ProductDetailPage({ onNavigate, productId }: ProductDetailPagePr
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         <Button variant="ghost" onClick={() => onNavigate('BACK')} className="mb-6 rounded-full">
           <ChevronLeft className="w-4 h-4 mr-2" />
           返回列表
