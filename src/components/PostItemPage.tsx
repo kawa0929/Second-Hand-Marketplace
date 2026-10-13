@@ -7,7 +7,7 @@ import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { generateHighConversionDescription } from "../utils/aiHelpers"; // 注意路徑
+import { generateHighConversionDescription } from "../utils/aiHelpers";
 
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
@@ -30,8 +30,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [condition, setCondition] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // 🌟 新增：用來控制 AI 產生文案時的 Loading 狀態
+  // 控制 AI 功能的 Loading 狀態
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
 
   const [variations, setVariations] = useState<Variation[]>([
     { id: Date.now().toString(), name: "", price: "", stock: "1" }
@@ -47,10 +48,10 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
 
-      if (aiGeneratedData.price) {
-        setVariations([{ id: Date.now().toString(), name: "", price: aiGeneratedData.price.toString(), stock: "1" }]);
-      }
-      toast.success("✨ 商品資訊已自動填入！");
+      // 🛑 已經把設定 price 的區塊拔掉了，保留預設的空白狀態
+      
+      // 改一下提示文字，順便引導使用者去點估價按鈕
+      toast.success("✨ 商品資訊已帶入！請手動輸入或使用「AI 估價」來決定售價");
     }
   }, [aiGeneratedData]);
 
@@ -142,7 +143,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setVariations(variations.map(v => v.id === id ? { ...v, [field]: value } : v));
   };
 
-  // 🌟 新增：逼真的 AI 銷售文案生成邏輯
+  // 🌟 AI 銷售文案生成邏輯
   const handleAIGenerateCopy = () => {
     if (!title) {
       toast.error("請先輸入上方「商品名稱」，AI 才有靈感幫你寫文案喔！");
@@ -152,13 +153,49 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setIsGenerating(true);
 
     setTimeout(() => {
-      // 🌟 核心整合：不再自己手寫一堆字，而是呼叫全域大腦！
       const generatedText = generateHighConversionDescription(title, condition);
-
       setDescription(generatedText);
       setIsGenerating(false);
       toast.success("✨ AI 已為您生成專屬高轉換率文案！");
     }, 1500);
+  };
+
+  // 🌟 AI 智慧估價邏輯
+  const handleAiPricing = async () => {
+    if (!title.trim()) {
+      toast.error("請先輸入商品名稱，AI 才能幫您估價喔！");
+      return;
+    }
+
+    setIsEstimating(true);
+
+    try {
+      const response = await fetch('http://localhost:3001/api/suggest-price', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyword: title, 
+          condition: condition || 'good'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const newVariations = [...variations];
+        newVariations[0].price = data.suggestedPrice.toString();
+        setVariations(newVariations);
+        
+        toast.success(`✅ 估價完成！全新市價約 ${data.marketPrice} 元，已自動填入建議二手價！`);
+      } else {
+        toast.error("找不到相關價格，請手動輸入");
+      }
+    } catch (error) {
+      console.error('估價失敗:', error);
+      toast.error("伺服器連線異常，請手動輸入價格");
+    } finally {
+      setIsEstimating(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -259,9 +296,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
           variant="ghost" 
           onClick={() => onNavigate(previousPage)}
           className="mb-6 rounded-full"
->
-  <ChevronLeft className="w-4 h-4 mr-2" /> 取消
-</Button>
+        >
+          <ChevronLeft className="w-4 h-4 mr-2" /> 取消
+        </Button>
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold">刊登商品</h1>
@@ -340,7 +377,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                 />
               </div>
 
-              {/* 🌟 替換區域：商品描述與 AI 生成按鈕 */}
               <div className="space-y-2">
                 <div className="flex justify-between items-end mb-1">
                   <Label htmlFor="description">商品描述 <span className="text-red-500">*</span></Label>
@@ -422,9 +458,26 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                   <Label className="text-lg font-medium">售價與數量 <span className="text-red-500">*</span></Label>
                   <p className="text-sm text-muted-foreground mt-1">若有多款商品（如款式 A、款式 B），請點擊新增規格。</p>
                 </div>
-                <Button type="button" variant="outline" onClick={addVariation} className="rounded-full shadow-sm hover:bg-neutral-100">
-                  <Plus className="w-4 h-4 mr-1" /> 新增規格
-                </Button>
+                
+                {/* 🌟 這是我們剛剛整合進去的 AI 估價按鈕 */}
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleAiPricing}
+                    disabled={isEstimating}
+                    className="rounded-full shadow-sm text-blue-600 border-blue-200 hover:bg-blue-50 transition-all"
+                  >
+                    {isEstimating ? (
+                      <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> 計算中...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4 mr-1" /> AI 估價</>
+                    )}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={addVariation} className="rounded-full shadow-sm hover:bg-neutral-100">
+                    <Plus className="w-4 h-4 mr-1" /> 新增規格
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -482,20 +535,20 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             </CardContent>
           </Card>
 
-      <div className="flex gap-4">
-        <Button 
-          type="button" 
-          variant="outline" 
-          size="lg" 
-          className="flex-1 rounded-full" 
-          onClick={() => onNavigate(previousPage === 'ai-camera' ? 'home' : previousPage)}
-        >
-          取消
-        </Button>
-        <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
-          {isUploading ? "圖片上傳中..." : "發布刊登"}
-        </Button>
-        </div>
+          <div className="flex gap-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="lg" 
+              className="flex-1 rounded-full" 
+              onClick={() => onNavigate(previousPage === 'ai-camera' ? 'home' : previousPage)}
+            >
+              取消
+            </Button>
+            <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
+              {isUploading ? "圖片上傳中..." : "發布刊登"}
+            </Button>
+          </div>
         </form>
       </div>
     </div>

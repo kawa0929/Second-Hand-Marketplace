@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs');
 const serviceAccount = require('./firebase-key.json'); // 引入你的金鑰
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const axios = require('axios');
 
 
 const app = express();
@@ -238,39 +239,150 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
-// 🌟 8. 刊登商品 API (支援多規格 variations)
+// 8. 刊登商品 API (支援多規格 variations)
+
 app.post('/api/post-item', async (req, res) => {
+
     try {
+
         // 🌟 解構出 variations
+
         const { title, description, category, condition, price, stock, location, images, sellerEmail, variations } = req.body;
 
+
+
         const newProduct = {
+
             title,
+
             description,
+
             category,
+
             condition,
+
             price: Number(price),
+
             stock: Number(stock) || 1,
+
             location: location || "",
+
             sellerEmail,
+
             images,
+
             variations: variations || [], // 🌟 將規格陣列存入資料庫
+
             status: '上架中',
+
             views: 0,
+
             createdAt: admin.firestore.FieldValue.serverTimestamp()
+
         };
 
+
+
         const docRef = await db.collection('products').add(newProduct);
+
         console.log(`📦 新商品刊登成功: ${title} (包含 ${variations?.length || 1} 種規格)`);
+
+
 
         res.status(201).json({ success: true, message: '刊登成功', productId: docRef.id });
 
+
+
     } catch (error) {
+
         console.error('❌ 刊登商品錯誤:', error);
+
         res.status(500).json({ success: false, message: '伺服器錯誤' });
+
     }
+
 });
 
+// 🌟 AI 智慧定價爬蟲 API (使用 SerpApi)
+app.post('/api/suggest-price', async (req, res) => {
+    try {
+        const { keyword, condition } = req.body; 
+
+        if (!keyword) {
+            return res.status(400).json({ success: false, message: '請提供商品關鍵字' });
+        }
+
+        console.log(`🔍 正在爬取 [${keyword}] 的市場價格...`);
+
+        // 準備 SerpApi 的請求網址 (設定搜尋台灣區 Google Shopping)
+        const serpApiKey = process.env.SERPAPI_KEY;
+        const url = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(keyword)}&hl=zh-tw&gl=tw&api_key=${serpApiKey}`;
+
+        const response = await axios.get(url);
+        const results = response.data.shopping_results;
+
+        if (!results || results.length === 0) {
+            return res.json({ success: false, message: '找不到相關商品價格，請手動定價。' });
+        }
+
+        // 抓取搜尋結果前 5 筆計算「全新市價平均」
+        // 抓取搜尋結果前 5 筆計算「全新市價平均」
+        let totalPrice = 0;
+        let count = 0;
+        
+        results.slice(0, 5).forEach(item => {
+            // SerpApi 通常會提供純數字的 extracted_price，如果沒有才處理字串
+            let priceNum = item.extracted_price; 
+            
+            if (!priceNum && item.price) {
+                // 移除逗號，並正確辨識小數點 (避免 35000.00 變成 3500000)
+                const match = String(item.price).replace(/,/g, '').match(/\d+(\.\d+)?/);
+                if (match) {
+                    priceNum = parseFloat(match[0]);
+                }
+            }
+
+            if (priceNum && priceNum > 0 && priceNum < 1000000) { // 加上防呆機制，過濾太扯的極端值
+                totalPrice += priceNum;
+                count++;
+            }
+        });
+
+        if (count === 0) {
+            return res.json({ success: false, message: '無法解析市價，請手動定價。' });
+        }
+
+        const avgMarketPrice = Math.round(totalPrice / count);
+
+       // 根據商品狀況計算建議二手價 (可依照你們平台的策略自由修改數字)
+        let discount = 0.7; // 預設打 7 折
+        
+        if (condition === 'new') discount = 0.95;       // 全新：打 95 折 (二手賣全新通常還是得稍微便宜點)
+        if (condition === 'like-new') discount = 0.85;  // 近全新：打 85 折
+        if (condition === 'excellent') discount = 0.75; // 極佳：打 75 折
+        if (condition === 'good') discount = 0.6;       // 良好：打 6 折
+        if (condition === 'fair') discount = 0.4;       // 尚可：打 4 折
+
+        const suggestedPrice = Math.round(avgMarketPrice * discount);
+
+        console.log(`✅ 計算完成！市價約 ${avgMarketPrice}，建議售價 ${suggestedPrice}`);
+
+        res.json({
+            success: true,
+            marketPrice: avgMarketPrice,
+            suggestedPrice: suggestedPrice,
+            topResults: results.slice(0, 3).map(r => ({
+                title: r.title,
+                price: r.price,
+                link: r.link
+            }))
+        });
+
+    } catch (error) {
+        console.error('❌ 爬蟲 API 錯誤:', error.message);
+        res.status(500).json({ success: false, message: '爬蟲伺服器錯誤' });
+    }
+});
 // 🌟 9. 撈取特定使用者的所有商品 (修復日期與價格報錯問題)
 app.get('/api/user-products/:email', async (req, res) => {
     try {
