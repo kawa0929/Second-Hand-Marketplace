@@ -1,4 +1,4 @@
-import { Search, Heart, ChevronLeft, Loader2 } from "lucide-react";
+import { Search, Heart, ChevronLeft, Loader2, Camera } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
@@ -146,7 +146,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     <div className="min-h-screen flex flex-col bg-[#BCE1DF]/25 text-gray-900 antialiased">
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 sm:px-10 py-10">
 
-        {/* ── Back link — FIXED: "BACK" route + "返回" label ── */}
+        {/* ── Back link ── */}
         <motion.button
           variants={fadeUp}
           initial="hidden"
@@ -180,10 +180,19 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
               placeholder="搜尋商品關鍵字..."
-              className="w-full pl-11 pr-4 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
+              className="w-full pl-11 pr-11 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
+            {/* 相機圖示按鈕 */}
+            <button
+              type="button"
+              onClick={() => toast.info("以圖搜圖功能開發中...")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors"
+              title="以圖搜圖"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
           </form>
 
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
