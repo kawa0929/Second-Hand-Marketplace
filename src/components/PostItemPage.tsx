@@ -170,11 +170,12 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setIsEstimating(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/suggest-price', {
+      // 🔽 修改這行：將 http://localhost:3000 去除，只保留路徑
+      const response = await fetch('/api/suggest-price', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          keyword: title, 
+          keyword: title,
           condition: condition || 'good'
         })
       });
@@ -185,7 +186,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
         const newVariations = [...variations];
         newVariations[0].price = data.suggestedPrice.toString();
         setVariations(newVariations);
-        
+
         toast.success(`✅ 估價完成！全新市價約 ${data.marketPrice} 元，已自動填入建議二手價！`);
       } else {
         toast.error("找不到相關價格，請手動輸入");
