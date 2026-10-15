@@ -1,6 +1,6 @@
 import {
   Search, Heart, ChevronRight, ArrowRight, MoveRight, Camera,
-  Laptop, Sofa, Shirt, Dumbbell, BookOpen, Gamepad, Flower2, Disc3, Box,
+  Laptop, Sofa, Shirt, Dumbbell, BookOpen, Gamepad, Flower2, Disc3, Box, Loader2,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { LoginPromptDialog } from "./LoginPromptDialog";
@@ -67,6 +67,8 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Parallax & Scroll setup ──────────────────────────────────────────────────
   const heroRef = useRef<HTMLElement>(null);
@@ -136,6 +138,57 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
         : toast.error("此商品目前已下架");
     } else {
       onNavigate("product-detail", product.id);
+    }
+  };
+
+  // 📷 觸發以圖搜圖
+  const handleImageSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsRecognizing(true);
+    const toastId = toast.loading("正在辨識圖片中...");
+
+    try {
+      // 1. 上傳到 ImgBB
+      const formData = new FormData();
+      formData.append("image", file);
+      const imgbbKey = "f428676453b3be7a71b6eb5ffe777c91"; 
+      
+      const uploadRes = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.success) {
+        throw new Error("圖片上傳失敗");
+      }
+      
+      const imageUrl = uploadData.data.url;
+
+      // 2. 將網址傳給後端進行 Google Lens 辨識
+      const recognizeRes = await fetch('/api/recognize-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl })
+      });
+      const recognizeData = await recognizeRes.json();
+
+      if (recognizeData.success) {
+        toast.success(`辨識成功！自動為您搜尋：${recognizeData.keyword}`, { id: toastId });
+        setSearchQuery(recognizeData.keyword); // 自動填入搜尋欄
+        onNavigate("products", undefined, recognizeData.keyword); // 自動跳轉至搜尋結果頁
+      } else {
+        toast.error(recognizeData.message || "無法辨識", { id: toastId });
+      }
+
+    } catch (error) {
+      console.error(error);
+      toast.error("辨識過程發生錯誤，請稍後再試", { id: toastId });
+    } finally {
+      setIsRecognizing(false);
+      if (fileInputRef.current) fileInputRef.current.value = ""; // 清空 input 讓下次可重選
     }
   };
 
@@ -240,23 +293,39 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           className="max-w-2xl mx-auto px-6 py-5 flex items-center gap-3"
         >
           <div className="flex-1 relative">
+            {/* 👇 隱藏的檔案上傳輸入框 */}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleImageSearch}
+            />
+
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               placeholder="搜尋商品關鍵字..."
               className="w-full pl-11 pr-11 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch(e as any)}
             />
-            {/* 相機圖示按鈕 */}
+            {/* 👇 相機圖示按鈕 */}
             <button
               type="button"
-              onClick={() => toast.info("以圖搜圖功能開發中...")}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isRecognizing}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors disabled:opacity-50"
               title="以圖搜圖"
             >
-              <Camera className="w-4 h-4" />
+              {isRecognizing ? (
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
             </button>
           </div>
+
           <button
             type="submit"
             className="h-11 px-7 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-700 active:scale-95 transition-all duration-200"

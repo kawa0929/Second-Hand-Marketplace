@@ -4,8 +4,8 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs');
 const serviceAccount = require('./firebase-key.json'); // 引入你的金鑰
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const axios = require('axios');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 
 const app = express();
@@ -306,7 +306,7 @@ app.post('/api/post-item', async (req, res) => {
 // 🌟 AI 智慧定價爬蟲 API (使用 SerpApi)
 app.post('/api/suggest-price', async (req, res) => {
     try {
-        const { keyword, condition } = req.body; 
+        const { keyword, condition } = req.body;
 
         if (!keyword) {
             return res.status(400).json({ success: false, message: '請提供商品關鍵字' });
@@ -367,9 +367,9 @@ app.post('/api/suggest-price', async (req, res) => {
 
         // ...後面的程式碼保留 (計算二手折數與 res.json 回傳)
 
-       // 根據商品狀況計算建議二手價 (可依照你們平台的策略自由修改數字)
+        // 根據商品狀況計算建議二手價 (可依照你們平台的策略自由修改數字)
         let discount = 0.7; // 預設打 7 折
-        
+
         if (condition === 'new') discount = 0.95;       // 全新：打 95 折 (二手賣全新通常還是得稍微便宜點)
         if (condition === 'like-new') discount = 0.85;  // 近全新：打 85 折
         if (condition === 'excellent') discount = 0.75; // 極佳：打 75 折
@@ -559,7 +559,7 @@ app.get('/api/products', async (req, res) => {
         const snapshot = await query.get();
         let products = snapshot.docs.map(doc => {
             const data = doc.data();
-            
+
             // 安全處理日期格式
             let formattedDate = "1970-01-01T00:00:00.000Z";
             if (data.createdAt && typeof data.createdAt.toDate === 'function') {
@@ -809,9 +809,10 @@ app.post('/api/products/:id/view', async (req, res) => {
 });
 
 // 🌟 新增：Gemini API 設定 (Key 請從環境變數讀取，安全第一)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// 新增：AI 圖片辨識 API
-app.post('/api/ai-analyze-image', async (req, res) => {
+// 修改後的寫法
+const visionGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 請確保這行長這樣（不要有 -latest）：
+const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" }); app.post('/api/ai-analyze-image', async (req, res) => {
     try {
         const { imageBase64 } = req.body; // 接收前端傳來的圖片 Base64 字串
 
@@ -820,9 +821,7 @@ app.post('/api/ai-analyze-image', async (req, res) => {
         }
 
         // 1. 初始化 Gemini Pro Vision 模型
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
-
-        // 2. 🌟 撰寫精準咒語 (Prompt) - 讓 AI 直接回傳乾淨的 JSON 格式，方便程式解析
+        const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" });        // 2. 🌟 撰寫精準咒語 (Prompt) - 讓 AI 直接回傳乾淨的 JSON 格式，方便程式解析
         const prompt = `你是二手市集的智慧上傳助手。請分析這張圖片中的商品。
 
             請僅回傳一個 JSON 格式的內容，不要包含任何 \`\`\`json 文字。JSON 結構如下：
@@ -1027,6 +1026,62 @@ app.get('/api/orders/seller/:email', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+
+// 在 server/index.js 加入這段
+
+app.post('/api/recognize-image', async (req, res) => {
+    try {
+        const { imageUrl } = req.body;
+        if (!imageUrl) return res.status(400).json({ success: false, message: '請提供圖片網址' });
+
+        console.log(`🔍 正在使用 Gemini AI 分析圖片: ${imageUrl}`);
+
+        // 1. 將網路圖片下載並轉成 Base64 格式
+        const imageResp = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const base64Image = Buffer.from(imageResp.data, 'binary').toString('base64');
+
+        // 2. 初始化 Gemini (請確認你的 .env 檔案裡有設定 GEMINI_API_KEY)
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // 請確保這行長這樣（不要有 -latest）：
+        const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" });        // 3. 設定擴充關鍵字的 Prompt
+        const prompt = `你是一個二手拍賣平台的搜尋助理。請辨識這張圖片中的物品，並回傳一組「最容易被搜尋到的組合關鍵字」。
+        規則：
+        1. 格式必須是：「大分類或品牌 具體物品名稱」。
+        2. 兩個詞之間用一個半形空格隔開。
+        3. 總字數限制在 10 個字以內。
+        4. 絕對不要包含任何標點符號或其他解釋。
+        範例：
+        - 看到帕恰狗娃娃，回傳：「三麗鷗 帕恰狗」
+        - 看到 iPhone 15，回傳：「Apple 手機」
+        - 看到多益參考書，回傳：「多益 參考書」`;
+
+        // 4. 呼叫模型
+        const result = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    data: base64Image,
+                    mimeType: "image/jpeg"
+                }
+            }
+        ]);
+
+        const keyword = result.response.text().trim();
+
+        if (keyword) {
+            console.log(`✅ AI 辨識結果: ${keyword}`);
+            res.json({ success: true, keyword: keyword });
+        } else {
+            res.json({ success: false, message: "無法辨識圖片內容" });
+        }
+
+    } catch (error) {
+        console.error('❌ AI 圖片辨識失敗:', error.message);
+        res.status(500).json({ success: false, message: '辨識伺服器異常' });
+    }
+});
+
+
 
 const PORT = 3001;
 app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));
