@@ -1,5 +1,5 @@
 import {
-  Search, Heart, ChevronRight, ArrowRight, MoveRight,
+  Search, Heart, ChevronRight, ArrowRight, MoveRight, Camera,
   Laptop, Sofa, Shirt, Dumbbell, BookOpen, Gamepad, Flower2, Disc3, Box,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
@@ -7,7 +7,6 @@ import { LoginPromptDialog } from "./LoginPromptDialog";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion, useScroll, useTransform, useSpring, Variants } from "framer-motion";
-
 
 interface HomePageProps {
   onNavigate: (page: string, productId?: string, searchQuery?: string) => void;
@@ -77,7 +76,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const rawParallax = useTransform(scrollY, [0, 600], ["0%", "22%"]);
   const parallaxY = useSpring(rawParallax, { stiffness: 80, damping: 20, mass: 0.5 });
 
-  // ✨ 新增：文字的滾動連動變數 (往下滾動 0~300px 之間，透明度 1 -> 0，位置 0 -> 往下沉 50px)
+  // 文字的滾動連動變數
   const textOpacity = useTransform(scrollY, [0, 300], [1, 0]);
   const textY = useTransform(scrollY, [0, 300], [0, 50]);
 
@@ -144,7 +143,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
     <div className="min-h-screen flex flex-col bg-white text-gray-900 antialiased overflow-x-hidden">
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-         HERO — full-bleed with true parallax
+          HERO — full-bleed with true parallax
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section
         ref={heroRef}
@@ -165,7 +164,6 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
         {/* Hero content */}
         <div className="absolute bottom-0 left-0 right-0 px-8 sm:px-16 pb-14 flex flex-col sm:flex-row items-end justify-between gap-6">
 
-          {/* ✨ 修改重點：將左側文字區塊用 style 綁定滾動變數 */}
           <motion.div style={{ opacity: textOpacity, y: textY }}>
             <motion.p
               initial={{ opacity: 0, y: 12 }}
@@ -210,7 +208,6 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
             </motion.p>
           </motion.div>
 
-          {/* ✨ 右側按鈕也可以跟著加上透明度變化，讓畫面更乾淨 */}
           <motion.div
             style={{ opacity: textOpacity }}
             initial={{ opacity: 0, y: 16 }}
@@ -229,7 +226,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-         SEARCH BAR
+          SEARCH BAR
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <motion.div
         variants={fadeUp}
@@ -246,10 +243,19 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               placeholder="搜尋商品關鍵字..."
-              className="w-full pl-11 pr-4 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
+              className="w-full pl-11 pr-11 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
+            {/* 相機圖示按鈕 */}
+            <button
+              type="button"
+              onClick={() => toast.info("以圖搜圖功能開發中...")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors"
+              title="以圖搜圖"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
           </div>
           <button
             type="submit"
@@ -261,11 +267,10 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </motion.div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-         CATEGORY IMAGE GRID — staggered reveal
+          CATEGORY IMAGE GRID — staggered reveal
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section className="max-w-7xl mx-auto w-full px-6 sm:px-10 pt-20 pb-10">
 
-        {/* Section heading (已修改：移除右側按鈕) */}
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -276,7 +281,6 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">瀏覽分類</h2>
         </motion.div>
 
-        {/* Staggered grid */}
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -317,7 +321,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-         LATEST PRODUCTS — staggered reveal
+          LATEST PRODUCTS — staggered reveal
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section className="max-w-7xl mx-auto w-full px-6 sm:px-10 pt-16 pb-28">
 
@@ -436,7 +440,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       </section>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-         FOOTER
+          FOOTER
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <footer className="border-t border-gray-100 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
