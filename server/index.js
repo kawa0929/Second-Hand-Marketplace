@@ -321,38 +321,51 @@ app.post('/api/suggest-price', async (req, res) => {
         const response = await axios.get(url);
         const results = response.data.shopping_results;
 
+        // ...前面的程式碼保留 (SerpApi 請求部分)
+
         if (!results || results.length === 0) {
             return res.json({ success: false, message: '找不到相關商品價格，請手動定價。' });
         }
 
-        // 抓取搜尋結果前 5 筆計算「全新市價平均」
-        // 抓取搜尋結果前 5 筆計算「全新市價平均」
-        let totalPrice = 0;
-        let count = 0;
-        
-        results.slice(0, 5).forEach(item => {
-            // SerpApi 通常會提供純數字的 extracted_price，如果沒有才處理字串
-            let priceNum = item.extracted_price; 
-            
+        // 🌟 優化邏輯：抓取前 20 筆資料，並收集所有有效價格
+        let validPrices = [];
+
+        results.slice(0, 20).forEach(item => {
+            let priceNum = item.extracted_price;
+
             if (!priceNum && item.price) {
-                // 移除逗號，並正確辨識小數點 (避免 35000.00 變成 3500000)
                 const match = String(item.price).replace(/,/g, '').match(/\d+(\.\d+)?/);
                 if (match) {
                     priceNum = parseFloat(match[0]);
                 }
             }
 
-            if (priceNum && priceNum > 0 && priceNum < 1000000) { // 加上防呆機制，過濾太扯的極端值
-                totalPrice += priceNum;
-                count++;
+            // 初步防呆：剔除小於 10 元 (防 1 元賣場) 與大於 100 萬的極端值
+            if (priceNum && priceNum > 10 && priceNum < 1000000) {
+                validPrices.push(priceNum);
             }
         });
 
-        if (count === 0) {
-            return res.json({ success: false, message: '無法解析市價，請手動定價。' });
+        if (validPrices.length === 0) {
+            return res.json({ success: false, message: '無法解析有效的市價，請手動定價。' });
         }
 
-        const avgMarketPrice = Math.round(totalPrice / count);
+        // 🌟 統計學防呆：價格由低到高排序
+        validPrices.sort((a, b) => a - b);
+
+        // 如果蒐集到的價格大於等於 5 筆，啟用「去頭去尾平均法」
+        if (validPrices.length >= 5) {
+            // 計算要去掉的數量 (前後各砍 20%)
+            const trimCount = Math.floor(validPrices.length * 0.2);
+            // 裁切陣列，只保留中間最合理的價格帶
+            validPrices = validPrices.slice(trimCount, validPrices.length - trimCount);
+        }
+
+        // 計算最終平均值
+        const totalPrice = validPrices.reduce((sum, price) => sum + price, 0);
+        const avgMarketPrice = Math.round(totalPrice / validPrices.length);
+
+        // ...後面的程式碼保留 (計算二手折數與 res.json 回傳)
 
        // 根據商品狀況計算建議二手價 (可依照你們平台的策略自由修改數字)
         let discount = 0.7; // 預設打 7 折
