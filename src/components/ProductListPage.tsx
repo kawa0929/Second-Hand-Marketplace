@@ -1,7 +1,7 @@
 import { Search, Heart, ChevronLeft, Loader2, Camera } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion, Variants } from "framer-motion";
 
@@ -54,11 +54,14 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   const [products, setProducts] = useState<any[]>([]);
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isCategory = Object.keys(categoryMap).includes(initialSearch);
   const [searchQuery, setSearchQuery] = useState(isCategory ? "" : initialSearch);
   const [categoryFilter, setCategoryFilter] = useState(isCategory ? initialSearch : "all");
   const [sortOrder, setSortOrder] = useState("recent");
+
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -97,6 +100,80 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   }, [initialSearch]);
 
   const handleLocalSearch = (e: React.FormEvent) => { e.preventDefault(); fetchProducts(); };
+  // 🌟 新增：以圖搜圖功能處理邏輯
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("圖片檔案太大囉！請選擇 5MB 以下的照片。");
+      return;
+    }
+
+    setIsRecognizing(true);
+    toast.info("🔍 正在分析圖片特徵，請稍候...");
+
+    // 1. 先將圖片上傳至 ImgBB
+    const IMGBB_API_KEYS = [
+      "f428676453b3be7a71b6eb5ffe777c91",
+      "56b4b5dbdd71601bcf28d83010505b19"
+    ];
+
+    let uploadSuccess = false;
+    let uploadedUrl = "";
+
+    for (const apiKey of IMGBB_API_KEYS) {
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
+        if (result.success) {
+          uploadedUrl = result.data.url;
+          uploadSuccess = true;
+          break;
+        }
+      } catch (error) {
+        console.warn(`ImgBB key ${apiKey} 失敗，嘗試下一把`);
+      }
+    }
+
+    if (!uploadSuccess) {
+      toast.error("圖片上傳失敗，請稍後再試！");
+      setIsRecognizing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // 2. 將圖片網址送給後端 Gemini AI 辨識
+    try {
+      const aiRes = await fetch('/api/recognize-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: uploadedUrl })
+      });
+      const aiData = await aiRes.json();
+
+      if (aiData.success && aiData.keyword) {
+        // 🌟 更新搜尋關鍵字，並切換回全部分類
+        setSearchQuery(aiData.keyword);
+        setCategoryFilter("all");
+        toast.success(`✨ 辨識成功！為您搜尋：「${aiData.keyword}」`);
+        // 因為 useEffect 有監聽 searchQuery，這裡一設定，畫面就會自動去撈新資料了！
+      } else {
+        toast.error("圖片辨識失敗，請換一張圖片或手動輸入。");
+      }
+    } catch (error) {
+      console.error("AI 辨識錯誤:", error);
+      toast.error("伺服器連線異常");
+    } finally {
+      setIsRecognizing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleToggleFavorite = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
@@ -184,14 +261,26 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleImageUpload}
+            />
             {/* 相機圖示按鈕 */}
             <button
               type="button"
-              onClick={() => toast.info("以圖搜圖功能開發中...")}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isRecognizing}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors disabled:opacity-50"
               title="以圖搜圖"
             >
-              <Camera className="w-4 h-4" />
+              {isRecognizing ? (
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
             </button>
           </form>
 
