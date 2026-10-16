@@ -7,6 +7,7 @@ import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { Loader2, Sparkles } from "lucide-react";
 
 interface EditProductPageProps {
     onNavigate: (page: string) => void;
@@ -29,6 +30,8 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
     const [status, setStatus] = useState("上架中");
     const [isUploading, setIsUploading] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [tags, setTags] = useState("");
+    const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
     const [variations, setVariations] = useState<Variation[]>([]);
 
@@ -47,6 +50,10 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     setCondition(p.condition);
                     setStatus(p.status || "上架中");
                     setImages(p.images || []);
+                    
+                    if (p.tags && Array.isArray(p.tags)) {
+                        setTags(p.tags.join(', '));
+                    }
 
                     if (p.variations && p.variations.length > 0) {
                         setVariations(p.variations.map((v: any, index: number) => ({
@@ -150,6 +157,32 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         setVariations(variations.map(v => v.id === id ? { ...v, [field]: value } : v));
     };
 
+    const handleGenerateTags = async () => {
+        if (!title.trim()) {
+            toast.error("請先輸入商品名稱！");
+            return;
+        }
+        setIsGeneratingTags(true);
+        try {
+            const response = await fetch('/api/generate-tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            const data = await response.json();
+            if (data.success && data.tags) {
+                setTags(data.tags.join(', '));
+                toast.success("✨ AI 標籤生成成功！");
+            } else {
+                toast.error("標籤生成失敗，請手動輸入");
+            }
+        } catch (error) {
+            toast.error("伺服器連線異常，請手動輸入標籤");
+        } finally {
+            setIsGeneratingTags(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -171,6 +204,8 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
             if (!v.stock || parseInt(v.stock) < 1 || isNaN(parseInt(v.stock))) return toast.error(`請填寫第 ${i + 1} 個規格的數量 (至少 1)！`);
         }
 
+        const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag !== "");
+
         const updateData = {
             title,
             description,
@@ -183,7 +218,8 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                 name: v.name.trim() || "單一款式", // 🌟 如果沒填，自動補上預設名稱
                 price: Number(v.price),
                 stock: parseInt(v.stock)
-            }))
+            })),
+            tags: tagsArray
         };
 
         try {
@@ -344,6 +380,38 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                             <SelectItem value="fair">尚可</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                {/* 🌟 步驟 5：新增 AI 標籤輸入區塊 */}
+                                <div className="space-y-2 pt-2 border-t mt-4">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <div>
+                                            <Label htmlFor="tags">隱藏搜尋標籤 (SEO)</Label>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                買家搜尋時，除了商品名稱，也會同時比對這些標籤，大幅增加曝光率！
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 rounded-full transition-all"
+                                            onClick={handleGenerateTags}
+                                            disabled={isGeneratingTags}
+                                        >
+                                            {isGeneratingTags ? (
+                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 生成中...</>
+                                            ) : (
+                                                <><Sparkles className="w-4 h-4 mr-2" /> AI 智能標籤</>
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <Input
+                                        id="tags"
+                                        value={tags}
+                                        onChange={(e) => setTags(e.target.value)}
+                                        placeholder="例如：三麗鷗, 公仔, 絕版品 (請用半形逗號分隔)"
+                                        className="rounded-xl h-11 bg-white border-border"
+                                    />
                                 </div>
                             </div>
                         </CardContent>

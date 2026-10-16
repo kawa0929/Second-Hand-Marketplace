@@ -39,6 +39,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [tags, setTags] = useState("");
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
   useEffect(() => {
     if (aiGeneratedData) {
@@ -199,6 +201,39 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
   };
 
+  // 🌟 AI 智能標籤生成邏輯
+  const handleGenerateTags = async () => {
+    if (!title.trim()) {
+      toast.error("請先輸入上方「商品名稱」，AI 才能幫你生出精準的標籤喔！");
+      return;
+    }
+
+    setIsGeneratingTags(true);
+
+    try {
+      const response = await fetch('/api/generate-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.tags) {
+        // 將後端回傳的陣列轉成逗號分隔的字串
+        setTags(data.tags.join(', '));
+        toast.success("✨ AI 標籤生成成功！您可以手動微調");
+      } else {
+        toast.error("標籤生成失敗，請手動輸入");
+      }
+    } catch (error) {
+      console.error('標籤生成失敗:', error);
+      toast.error("伺服器連線異常，請手動輸入標籤");
+    } finally {
+      setIsGeneratingTags(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -257,6 +292,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+    const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag !== "");
+
     const postData = {
       title,
       description,
@@ -271,7 +308,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       })),
       location: "",
       images,
-      sellerEmail: user.email
+      sellerEmail: user.email,
+      tags: tagsArray // 🌟 這裡記得要把陣列送給後端！
     };
 
     try {
@@ -447,6 +485,37 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                       <SelectItem value="fair">尚可</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2 pt-2 border-t mt-4">
+                  <div className="flex justify-between items-end mb-2">
+                    <div>
+                      <Label htmlFor="tags">隱藏搜尋標籤 (SEO)</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        買家搜尋時，除了商品名稱，也會同時比對這些標籤，大幅增加曝光率！
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 rounded-full transition-all"
+                      onClick={handleGenerateTags}
+                      disabled={isGeneratingTags}
+                    >
+                      {isGeneratingTags ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 生成中...</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4 mr-2" /> AI 智能標籤</>
+                      )}
+                    </Button>
+                  </div>
+                  <Input
+                    id="tags"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                    placeholder="例如：三麗鷗, 公仔, 絕版品 (請用半形逗號分隔)"
+                    className="rounded-xl h-11 bg-white border-border"
+                  />
                 </div>
               </div>
             </CardContent>
