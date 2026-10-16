@@ -443,7 +443,8 @@ app.get('/api/products/seller/:email', async (req, res) => {
 // 🌟 11. 更新商品資訊 (編輯後存檔用，支援多規格)
 app.put('/api/product/:id', async (req, res) => {
     try {
-        const { title, description, category, condition, price, stock, images, variation, tags } = req.body;
+        // 請找到這一行，並把漏掉的 variations 補上去
+        const { title, description, category, condition, price, stock, images, tags, variations } = req.body;
 
         const updateData = {
             title,
