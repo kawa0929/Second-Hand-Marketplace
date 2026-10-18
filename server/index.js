@@ -240,11 +240,14 @@ app.post('/api/update-profile', async (req, res) => {
 });
 
 // 8. 刊登商品 API (支援多規格 variations)
-
 app.post('/api/post-item', async (req, res) => {
     try {
+
         // 🌟 1. 解構出 verifiedBadge
-        const { title, description, category, condition, price, stock, location, images, sellerEmail, variations, verifiedBadge } = req.body;
+        const { title, description, category, condition, price, stock, location, images, sellerEmail, variations, verifiedBadge, tags } = req.body;
+
+
+
 
         const newProduct = {
             title,
@@ -258,6 +261,7 @@ app.post('/api/post-item', async (req, res) => {
             images,
             variations: variations || [],
             verifiedBadge: verifiedBadge || false, // 🌟 2. 將標章狀態寫入資料庫
+            tags: tags || [], // 🌟 2. 將前端傳來的標籤陣列存入資料庫（若無則預設為空陣列）
             status: '上架中',
             views: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -265,26 +269,15 @@ app.post('/api/post-item', async (req, res) => {
         
         // ... (保留你底下原本寫入資料庫的 docRef 程式碼) ...
 
-
-
         const docRef = await db.collection('products').add(newProduct);
-
-        console.log(`📦 新商品刊登成功: ${title} (包含 ${variations?.length || 1} 種規格)`);
-
-
+        console.log(`📦 新商品刊登成功: ${title} (包含 ${variations?.length || 1} 種規格, ${tags?.length || 0} 個標籤)`);
 
         res.status(201).json({ success: true, message: '刊登成功', productId: docRef.id });
 
-
-
     } catch (error) {
-
         console.error('❌ 刊登商品錯誤:', error);
-
         res.status(500).json({ success: false, message: '伺服器錯誤' });
-
     }
-
 });
 
 // 🌟 AI 智慧定價爬蟲 API (使用 SerpApi)
@@ -457,7 +450,8 @@ app.get('/api/products/seller/:email', async (req, res) => {
 // 🌟 11. 更新商品資訊 (編輯後存檔用，支援多規格)
 app.put('/api/product/:id', async (req, res) => {
     try {
-        const { title, description, category, condition, price, stock, images, variations } = req.body;
+        // 請找到這一行，並把漏掉的 variations 補上去
+        const { title, description, category, condition, price, stock, images, tags, variations } = req.body;
 
         const updateData = {
             title,
@@ -468,6 +462,7 @@ app.put('/api/product/:id', async (req, res) => {
             stock: Number(stock) || 1,
             images,
             variations: variations || [], // 🌟 編輯時如果有改規格，存進去
+            tags: tags || [],
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
@@ -563,10 +558,15 @@ app.get('/api/products', async (req, res) => {
         // 2. 關鍵字搜尋過濾 (不分大小寫)
         if (search) {
             const keyword = search.toLowerCase();
-            products = products.filter(p =>
-                (p.title && p.title.toLowerCase().includes(keyword)) ||
-                (p.description && p.description.toLowerCase().includes(keyword))
-            );
+            products = products.filter(p => {
+                const matchTitle = p.title && p.title.toLowerCase().includes(keyword);
+                const matchDesc = p.description && p.description.toLowerCase().includes(keyword);
+                // 🌟 新增：檢查 tags 陣列內是否包含關鍵字
+                const matchTags = p.tags && p.tags.some(tag => tag.toLowerCase().includes(keyword));
+
+                // 只要標題、描述、或標籤其中一個有中，就抓出來！
+                return matchTitle || matchDesc || matchTags;
+            });
         }
 
         // 3. 排序邏輯
@@ -1023,20 +1023,22 @@ app.post('/api/recognize-image', async (req, res) => {
         const imageResp = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         const base64Image = Buffer.from(imageResp.data, 'binary').toString('base64');
 
-        // 2. 初始化 Gemini (請確認你的 .env 檔案裡有設定 GEMINI_API_KEY)
+        // 2. 初始化 Gemini (修正變數名稱一致為 genAI)
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // 請確保這行長這樣（不要有 -latest）：
-        const model = visionGenAI.getGenerativeModel({ model: "gemini-flash-latest" });        // 3. 設定擴充關鍵字的 Prompt
+        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+
+        // 3. 設定擴充關鍵字的 Prompt (優化版：自動過濾累贅字)
         const prompt = `你是一個二手拍賣平台的搜尋助理。請辨識這張圖片中的物品，並回傳一組「最容易被搜尋到的組合關鍵字」。
         規則：
-        1. 格式必須是：「大分類或品牌 具體物品名稱」。
+        1. 格式必須是：「大分類或品牌 具體核心物品名稱」。
         2. 兩個詞之間用一個半形空格隔開。
         3. 總字數限制在 10 個字以內。
-        4. 絕對不要包含任何標點符號或其他解釋。
+        4. 【重要】請自動去除「書」、「娃娃」、「衣服」等過於氾濫的後綴字，只保留核心關鍵字。
+        5. 絕對不要包含任何標點符號或其他解釋。
         範例：
         - 看到帕恰狗娃娃，回傳：「三麗鷗 帕恰狗」
-        - 看到 iPhone 15，回傳：「Apple 手機」
-        - 看到多益參考書，回傳：「多益 參考書」`;
+        - 看到多益聽力參考書，回傳：「多益 聽力」
+        - 看到 iPhone 15，回傳：「Apple iPhone15」`;
 
         // 4. 呼叫模型
         const result = await model.generateContent([
@@ -1072,6 +1074,8 @@ app.post('/api/verify-images', async (req, res) => {
         return res.json({ success: false, isPass: false, reason: '至少需上傳兩張圖片' });
     }
 
+
+
     try {
         console.log("📥 開始驗證圖片網址:", images);
         
@@ -1104,6 +1108,33 @@ app.post('/api/verify-images', async (req, res) => {
                 throw new Error("無法讀取 ImgBB 上的圖片");
             }
         }));
+
+        // 🌟 新增：讓前端呼叫以生成 AI 標籤的 API
+app.post('/api/generate-tags', async (req, res) => {
+    try {
+        const { title } = req.body;
+        if (!title) return res.status(400).json({ success: false, message: '請提供商品標題' });
+
+        // 使用較不易塞車的 lite 模型
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+
+        const prompt = `你是一個電商 SEO 專家。賣家準備上架商品，標題為：「${title}」。
+        請聯想 5 個買家可能會用來搜尋這個商品的「同義詞、所屬品牌或隱藏關鍵字」。
+        規則：請「只」回傳一個 JSON 格式的字串陣列，絕對不要包含任何 markdown 標記、\`\`\`json 標籤或其他文字。
+        範例：["三麗鷗", "Sanrio", "玩偶", "公仔", "周邊"]`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text().trim();
+        const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '');
+        const tags = JSON.parse(cleanJson);
+
+        res.json({ success: true, tags });
+    } catch (error) {
+        console.error('❌ AI 標籤生成失敗:', error);
+        res.status(500).json({ success: false, message: '標籤生成失敗，請稍後再試' });
+    }
+});
 
         // 2. 設定給 AI 審查員的嚴格指令
         const prompt = `你是一個二手拍賣平台的「防詐騙影像審查專家」。請比對使用者上傳的這 ${images.length} 張照片。
