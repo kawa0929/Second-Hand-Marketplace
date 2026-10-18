@@ -58,6 +58,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isCategory = Object.keys(categoryMap).includes(initialSearch);
+  const [inputValue, setInputValue] = useState(isCategory ? "" : initialSearch);
   const [searchQuery, setSearchQuery] = useState(isCategory ? "" : initialSearch);
   const [categoryFilter, setCategoryFilter] = useState(isCategory ? initialSearch : "all");
   const [sortOrder, setSortOrder] = useState("recent");
@@ -99,7 +100,10 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
     else { setSearchQuery(initialSearch); setCategoryFilter("all"); }
   }, [initialSearch]);
 
-  const handleLocalSearch = (e: React.FormEvent) => { e.preventDefault(); fetchProducts(); };
+  const handleLocalSearch = (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    setSearchQuery(inputValue); // 🌟 按下 Enter 時，才真正觸發搜尋
+  };
   // 🌟 新增：以圖搜圖功能處理邏輯
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -258,8 +262,8 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
             <input
               placeholder="搜尋商品關鍵字..."
               className="w-full pl-11 pr-11 h-11 text-sm bg-gray-50 border border-gray-200 rounded-full text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all duration-200"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
             />
             <input
               type="file"
@@ -343,6 +347,7 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
           /* ── Product grid ── */
         ) : (
           <motion.div
+            key={`${searchQuery}-${categoryFilter}-${sortOrder}`} // 🌟 新增這行：只要搜尋或排序條件改變，就強制重跑進場動畫！
             variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
@@ -396,13 +401,21 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
                     <p className={`text-sm font-medium text-gray-900 truncate mb-1 ${isDelisted ? "line-through text-gray-400" : ""}`}>
                       {product.title}
                     </p>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm text-gray-500">
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <p className="text-sm font-bold text-gray-700">
                         NT${Number(product.price).toLocaleString()}
                       </p>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cond.colorClass}`}>
-                        {cond.label}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {/* 🌟 判斷資料庫是否有實拍認證，有的話就顯示勳章 */}
+                        {product.verifiedBadge && (
+                          <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            📸 實拍認證
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cond.colorClass}`}>
+                          {cond.label}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
