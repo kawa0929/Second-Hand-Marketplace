@@ -334,11 +334,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       location: "",
       images,
       sellerEmail: user.email,
-<<<<<<< HEAD
-      verifiedBadge: true // 🌟 能留存兩張照片代表已通過 AI 檢查，直接給予標章！
-=======
+      verifiedBadge: true,// 🌟 能留存兩張照片代表已通過 AI 檢查，直接給予標章！
       tags: tagsArray // 🌟 這裡記得要把陣列送給後端！
->>>>>>> 13f49e67278c4b43f5b72fc60531490273841e08
     };
 
     try {
