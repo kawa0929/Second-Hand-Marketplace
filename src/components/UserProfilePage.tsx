@@ -19,6 +19,7 @@ interface ListingItem {
   image: string;
   status: string;
   views: number;
+  verifiedBadge?: boolean; // 🌟 新增型別支援
 }
 
 interface FavoriteItem {
@@ -73,7 +74,8 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
               price: `NT$${p.price}`, // 轉成字串讓妳下方的 replace 邏輯過
               image: p.images?.[0] || "",
               status: p.status || "上架中",
-              views: p.views || 0
+              views: p.views || 0,
+              verifiedBadge: p.verifiedBadge || false // 🌟 把標籤也抓進來
             }));
             setUserListings(formatted);
           }
@@ -254,9 +256,19 @@ export function UserProfilePage({ onNavigate, onLogout }: UserProfilePageProps) 
                       <div className={`mb-2 font-medium ${item.status === '已下架' ? 'text-neutral-400 line-through' : ''}`}>
                         {item.title}
                       </div>
-                      <div className={`mb-3 font-bold ${item.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
-                        NT${Number(item.price.replace('NT$', '').replace(',', '')).toLocaleString()}
+
+                      {/* 🌟 核心修改：將價格與標章排在同一行 */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className={`font-bold ${item.status === '已下架' ? 'text-neutral-400' : 'text-primary'}`}>
+                          NT${Number(item.price.replace('NT$', '').replace(',', '')).toLocaleString()}
+                        </div>
+                        {item.verifiedBadge && (
+                          <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            📸 實拍認證
+                          </span>
+                        )}
                       </div>
+
                       <div className="flex items-center justify-between text-muted-foreground text-sm">
                         <span>{item.views} 次瀏覽</span>
                         <Button
