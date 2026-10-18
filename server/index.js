@@ -242,44 +242,28 @@ app.post('/api/update-profile', async (req, res) => {
 // 8. 刊登商品 API (支援多規格 variations)
 
 app.post('/api/post-item', async (req, res) => {
-
     try {
-
-        // 🌟 解構出 variations
-
-        const { title, description, category, condition, price, stock, location, images, sellerEmail, variations } = req.body;
-
-
+        // 🌟 1. 解構出 verifiedBadge
+        const { title, description, category, condition, price, stock, location, images, sellerEmail, variations, verifiedBadge } = req.body;
 
         const newProduct = {
-
             title,
-
             description,
-
             category,
-
             condition,
-
             price: Number(price),
-
             stock: Number(stock) || 1,
-
             location: location || "",
-
             sellerEmail,
-
             images,
-
-            variations: variations || [], // 🌟 將規格陣列存入資料庫
-
+            variations: variations || [],
+            verifiedBadge: verifiedBadge || false, // 🌟 2. 將標章狀態寫入資料庫
             status: '上架中',
-
             views: 0,
-
             createdAt: admin.firestore.FieldValue.serverTimestamp()
-
         };
+        
+        // ... (保留你底下原本寫入資料庫的 docRef 程式碼) ...
 
 
 
@@ -812,7 +796,7 @@ app.post('/api/products/:id/view', async (req, res) => {
 // 修改後的寫法
 const visionGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // 請確保這行長這樣（不要有 -latest）：
-const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" }); app.post('/api/ai-analyze-image', async (req, res) => {
+const model = visionGenAI.getGenerativeModel({ model: "gemini-flash-latest" }); app.post('/api/ai-analyze-image', async (req, res) => {
     try {
         const { imageBase64 } = req.body; // 接收前端傳來的圖片 Base64 字串
 
@@ -821,7 +805,7 @@ const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" }); app
         }
 
         // 1. 初始化 Gemini Pro Vision 模型
-        const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" });        // 2. 🌟 撰寫精準咒語 (Prompt) - 讓 AI 直接回傳乾淨的 JSON 格式，方便程式解析
+        const model = visionGenAI.getGenerativeModel({ model: "gemini-flash-latest" });        // 2. 🌟 撰寫精準咒語 (Prompt) - 讓 AI 直接回傳乾淨的 JSON 格式，方便程式解析
         const prompt = `你是二手市集的智慧上傳助手。請分析這張圖片中的商品。
 
             請僅回傳一個 JSON 格式的內容，不要包含任何 \`\`\`json 文字。JSON 結構如下：
@@ -830,7 +814,6 @@ const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" }); app
             "category": "（請精準判斷並從以下分類選一個：electronics, furniture, fashion, sports, books, toys, idol, other）",
             "condition": "（根據外觀精準判斷狀況，選一個：like-new, excellent, good, fair）",
             "description": "（產生一段 150 字內的行銷文案，包含 Emoji，介紹商品外觀狀況與優點）",
-            "suggestedPrice": （一個合理的二手建議台幣售價，數字即可，不要加 NT$）
             }`;
 
         // 3. 準備圖片資料格式
@@ -1043,7 +1026,7 @@ app.post('/api/recognize-image', async (req, res) => {
         // 2. 初始化 Gemini (請確認你的 .env 檔案裡有設定 GEMINI_API_KEY)
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         // 請確保這行長這樣（不要有 -latest）：
-        const model = visionGenAI.getGenerativeModel({ model: "gemini-3.5-flash" });        // 3. 設定擴充關鍵字的 Prompt
+        const model = visionGenAI.getGenerativeModel({ model: "gemini-flash-latest" });        // 3. 設定擴充關鍵字的 Prompt
         const prompt = `你是一個二手拍賣平台的搜尋助理。請辨識這張圖片中的物品，並回傳一組「最容易被搜尋到的組合關鍵字」。
         規則：
         1. 格式必須是：「大分類或品牌 具體物品名稱」。
@@ -1081,7 +1064,90 @@ app.post('/api/recognize-image', async (req, res) => {
     }
 });
 
+// ── 🌟 26. AI 多視角實拍防詐騙驗證 API ──
+app.post('/api/verify-images', async (req, res) => {
+    const { images } = req.body;
 
+    if (!images || images.length < 2) {
+        return res.json({ success: false, isPass: false, reason: '至少需上傳兩張圖片' });
+    }
 
-const PORT = 3001;
-app.listen(PORT, () => console.log(`🚀 伺服器運行在 http://localhost:${PORT}`));
+    try {
+        console.log("📥 開始驗證圖片網址:", images);
+        
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("後端找不到 GEMINI_API_KEY");
+        }
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // 確保使用 2.5 版本
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        // 1. 嘗試下載圖片，並強制設定 MIME 格式防呆
+        const imageParts = await Promise.all(images.map(async (url) => {
+            try {
+                const response = await axios.get(url, { responseType: 'arraybuffer' });
+                
+                let mime = response.headers['content-type'];
+                if (!mime || !mime.startsWith('image/')) {
+                    mime = 'image/jpeg'; // 強制防呆設定為圖片格式
+                }
+
+                return {
+                    inlineData: {
+                        data: Buffer.from(response.data, 'binary').toString('base64'),
+                        mimeType: mime
+                    }
+                };
+            } catch (downloadErr) {
+                console.error("❌ 圖片下載失敗:", url);
+                throw new Error("無法讀取 ImgBB 上的圖片");
+            }
+        }));
+
+        // 2. 設定給 AI 審查員的嚴格指令
+        const prompt = `你是一個二手拍賣平台的「防詐騙影像審查專家」。請比對使用者上傳的這 ${images.length} 張照片。
+        請嚴格分類這幾張照片的狀況，並回傳純 JSON 格式（不要包含任何 Markdown 標記）：
+        
+        【審查規則與指定回覆】
+        1. 檢查是否為同一個商品：如果照片中明顯是「不同的物品（例如一張是衣服、一張是鞋子）」，isPass 請設為 false，並且 reason 必須一字不漏填寫：「這是不同商品不可上傳」。
+        2. 檢查是否為不同視角：如果是同一個商品，但根本是同一張圖片重複上傳、稍微裁切、或套濾鏡，isPass 請設為 false，並且 reason 請填寫：「圖片視角高度重複，請拍攝不同角度的照片」。
+        3. 驗證通過：如果是同一個真實商品，且有拍出不同的視角或細節，isPass 設為 true，reason 填寫：「驗證成功」。
+
+        輸出格式：
+        {
+          "isPass": true 或 false,
+          "reason": "依照上方規則填寫的理由"
+        }`;
+
+        console.log("🚀 準備呼叫 Gemini 進行視覺比對...");
+        const result = await model.generateContent([prompt, ...imageParts]);
+        const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+        const aiParsed = JSON.parse(text);
+
+        console.log(`📸 實拍驗證結果: ${aiParsed.isPass ? '✅ 通過' : '❌ 失敗 (' + aiParsed.reason + ')'}`);
+        res.json({ success: true, isPass: aiParsed.isPass, reason: aiParsed.reason });
+
+    } catch (error) {
+        const errorString = String(error.message || error);
+        console.error("💥 AI 圖片驗證發生錯誤:", errorString);
+        
+        // 塞車與額度用盡的阻擋機制
+        if (errorString.includes('503') || errorString.includes('429')) {
+            console.log("⚠️ AI 伺服器塞車中，阻擋上傳並提示使用者");
+            return res.json({ 
+                success: true, 
+                isPass: false, 
+                reason: "AI 伺服器目前忙碌中，系統暫時無法上傳圖片，請稍後再試。" 
+            });
+        }
+
+        res.json({ success: false, isPass: false, reason: `系統驗證異常: ${errorString}` });
+    }
+});
+
+// ── 伺服器監聽 ──
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+    console.log(`🚀 伺服器運行在 http://localhost:${PORT}`);
+});
