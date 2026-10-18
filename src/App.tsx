@@ -142,7 +142,7 @@ export default function App() {
             category: aiData.category,
             condition: aiData.condition,
             description: aiData.description,
-            price: aiData.suggestedPrice.toString(),
+  
           };
 
           setAiGeneratedData(integratedProductData);

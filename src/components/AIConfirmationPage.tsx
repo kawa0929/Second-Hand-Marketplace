@@ -67,15 +67,7 @@ export function AIConfirmationPage({ onNavigate, onSkip, productData }: AIConfir
             </div>
 
             {/* Suggested Price */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary" />
-                <span className="text-muted-foreground">建議價格</span>
-              </div>
-              <p className="pl-4">
-                NT$ {productData.price}
-              </p>
-            </div>
+            
           </CardContent>
 
           {/* Shimmer effect overlay */}

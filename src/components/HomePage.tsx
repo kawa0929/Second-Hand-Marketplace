@@ -474,12 +474,19 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                     </div>
 
                     {/* Info */}
-                    <div>
-                      <p className={`text-sm font-medium text-gray-900 truncate mb-1 ${isDelisted ? "line-through text-gray-400" : ""}`}>
-                        {product.title}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-500">NT${Number(product.price).toLocaleString()}</p>
+                    {/* 🌟 加上這行：顯示商品名稱，如果已下架會加上刪除線 */}
+                    <p className={`text-sm font-medium text-gray-900 truncate mb-1 ${isDelisted ? "line-through text-gray-400" : ""}`}>
+                      {product.title}
+                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-sm font-bold text-gray-700">NT${Number(product.price).toLocaleString()}</p>
+                      <div className="flex items-center gap-1">
+                        {/* 🌟 只要資料庫有實拍認證，就顯示這個超有質感的紫色勳章 */}
+                        {product.verifiedBadge && (
+                          <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            📸 實拍認證
+                          </span>
+                        )}
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cond.colorClass}`}>
                           {cond.label}
                         </span>

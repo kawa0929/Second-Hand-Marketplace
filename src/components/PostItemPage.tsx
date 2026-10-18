@@ -48,7 +48,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       setCategory(aiGeneratedData.category || "");
       setCondition(aiGeneratedData.condition || "");
 
-      // 🛑 已經把設定 price 的區塊拔掉了，保留預設的空白狀態
+     // 🛑 已經把設定 price 的區塊拔掉了，保留預設的空白狀態
       
       // 改一下提示文字，順便引導使用者去點估價按鈕
       toast.success("✨ 商品資訊已帶入！請手動輸入或使用「AI 估價」來決定售價");
@@ -109,8 +109,34 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
 
     if (uploadSuccess) {
-      setImages((prev) => [...prev, uploadedUrl]);
-      toast.success("照片上傳成功！📸");
+      // 🌟 在上傳當下進行防重複與多視角比對
+      if (images.length === 0) {
+        // 第一張照片直接放行
+        setImages([uploadedUrl]);
+        toast.success("第一張照片上傳成功！請繼續上傳不同視角的照片 📸");
+      } else {
+        // 第二張以上，呼叫 AI 比對
+        toast.info("🔍 AI 正在比對是否為不同視角的實拍圖...", { id: "verify-img" });
+        try {
+          const verifyRes = await fetch('/api/verify-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: [...images, uploadedUrl] }) 
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.success && verifyData.isPass) {
+            setImages((prev) => [...prev, uploadedUrl]);
+            toast.success("✅ AI 驗證通過：是不同視角的照片！", { id: "verify-img" });
+          } else {
+            toast.error(`⚠️ 照片被退回：${verifyData.reason}`, { id: "verify-img", duration: 6000 });
+          }
+        } catch (error) {
+          toast.dismiss("verify-img");
+          console.warn("驗證連線異常", error);
+          toast.error("驗證伺服器異常，請稍後再試。");
+        }
+      }
     } else {
       toast.error("圖片上傳失敗，請確認 API Key 額度或稍後再試！");
     }
@@ -170,7 +196,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     setIsEstimating(true);
 
     try {
-      // 🔽 修改這行：將 http://localhost:3000 去除，只保留路徑
       const response = await fetch('/api/suggest-price', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -203,7 +228,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     e.preventDefault();
 
     if (images.length < 2) {
-      toast.error("請最少上傳兩張照片以完成刊登！");
+      toast.error("平台防詐騙規定：請最少上傳「兩張」不同視角的照片！");
       return;
     }
     if (!title.trim()) {
@@ -271,7 +296,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       })),
       location: "",
       images,
-      sellerEmail: user.email
+      sellerEmail: user.email,
+      verifiedBadge: true // 🌟 能留存兩張照片代表已通過 AI 檢查，直接給予標章！
     };
 
     try {
@@ -282,7 +308,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       });
       const data = await response.json();
       if (data.success) {
-        toast.success("商品刊登成功！🎉");
+        toast.success("商品刊登成功！已獲得實拍認證標章 🎉");
         onNavigate('profile');
       }
     } catch (error) {
@@ -460,7 +486,6 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                   <p className="text-sm text-muted-foreground mt-1">若有多款商品（如款式 A、款式 B），請點擊新增規格。</p>
                 </div>
                 
-                {/* 🌟 這是我們剛剛整合進去的 AI 估價按鈕 */}
                 <div className="flex gap-2">
                   <Button 
                     type="button" 
