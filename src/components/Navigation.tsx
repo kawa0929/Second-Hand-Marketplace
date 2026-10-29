@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from "react";
 
 import { db } from "../firebase";
 import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
+// @ts-ignore
+import LogoImg from '../public/logo.png';
 
 interface NavigationProps {
   currentPage: string;
@@ -40,7 +42,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
     if (!myEmail) return;
 
     const listKey = `chatList_${myEmail}`;
-    const processedKey = `processedMsgs_${myEmail}`; 
+    const processedKey = `processedMsgs_${myEmail}`;
 
     const updateCount = () => {
       try {
@@ -50,17 +52,17 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
           const count = savedList.reduce((sum: number, chat: any) => sum + (chat.unread || 0), 0);
           setTotalUnread(count);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
 
-    updateCount(); 
+    updateCount();
 
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     try {
       const messagesRef = collection(db, "messages");
       const THREE_DAYS_AGO = Date.now() - (3 * 24 * 60 * 60 * 1000);
-      
+
       const q = query(
         messagesRef,
         where("receiverEmail", "==", myEmail),
@@ -80,18 +82,18 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
         changes.forEach((change) => {
           if (change.type === "added") {
             const newMsg = change.doc.data();
-            const msgId = change.doc.id; 
-            
+            const msgId = change.doc.id;
+
             if (newMsg.senderEmail === myEmail) return;
             if (processedMsgs[msgId]) return;
 
             processedMsgs[msgId] = true;
 
             if (currentPageRef.current !== 'chat') {
-              const chatIndex = savedList.findIndex((c: any) => 
+              const chatIndex = savedList.findIndex((c: any) =>
                 c.email === newMsg.senderEmail || c.id === newMsg.senderEmail
               );
-              
+
               if (chatIndex !== -1) {
                 savedList[chatIndex].unread = (savedList[chatIndex].unread || 0) + 1;
                 savedList[chatIndex].lastMessage = newMsg.text || (newMsg.type === 'image' ? '[圖片]' : '[商品資訊]');
@@ -122,7 +124,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
       }, (error) => {
         console.error("Firebase 監聽錯誤:", error);
       });
-    } catch (firebaseError) {}
+    } catch (firebaseError) { }
 
     window.addEventListener('storage', updateCount);
 
@@ -130,7 +132,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
       unsubscribe();
       window.removeEventListener('storage', updateCount);
     };
-  }, [isLoggedIn, currentPage]); 
+  }, [isLoggedIn, currentPage]);
 
   const handleNavigate = (page: string) => {
     onNavigate(page);
@@ -143,33 +145,47 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
   };
 
   return (
-    <nav className="absolute top-0 z-50 w-full bg-custom-purple">
+    <nav className="absolute top-0 z-50 w-full bg-slate-900 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
             <button onClick={() => handleNavigate('home')} className="flex items-center gap-2 font-bold">
-              <Package className="w-6 h-6" />
-              <span>二手好物市集</span>
+              <img src={LogoImg} alt="物遇 WUYU Logo" className="h-20 w-auto" />
             </button>
 
             {/* 電腦版左側選單 */}
             <div className="hidden md:flex items-center gap-2">
-              <Button variant={currentPage === 'home' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleNavigate('home')} className="rounded-full">
+              <Button
+                variant={currentPage === 'home' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleNavigate('home')}
+                className={`rounded-full ${currentPage === 'home' ? '' : 'text-gray-200 hover:text-white hover:bg-slate-800'}`}
+              >
                 <Home className="w-4 h-4 mr-2" /> 首頁
               </Button>
-              <Button variant={currentPage === 'products' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleNavigate('products')} className="rounded-full">
+              <Button
+                variant={currentPage === 'products' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleNavigate('products')}
+                className={`rounded-full ${currentPage === 'products' ? '' : 'text-gray-200 hover:text-white hover:bg-slate-800'}`}
+              >
                 <Package className="w-4 h-4 mr-2" /> 瀏覽商品
               </Button>
-              <Button variant={currentPage === 'post' ? 'secondary' : 'ghost'} size="sm" onClick={() => onNavigate('post')} className="rounded-full">
+              <Button
+                variant={currentPage === 'post' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => onNavigate('post')}
+                className={`rounded-full ${currentPage === 'post' ? '' : 'text-gray-200 hover:text-white hover:bg-slate-800'}`}
+              >
                 <PlusCircle className="w-4 h-4 mr-2" /> 刊登商品
               </Button>
-              
+
               {isLoggedIn && (
                 <Button
                   variant={currentPage === 'chat' ? 'secondary' : 'ghost'}
                   size="sm"
                   onClick={() => handleNavigate('chat')}
-                  className="rounded-full relative" 
+                  className={`rounded-full relative ${currentPage === 'chat' ? '' : 'text-gray-200 hover:text-white hover:bg-slate-800'}`}
                   style={{ overflow: 'visible' }}
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
@@ -187,28 +203,53 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
           <div className="flex items-center gap-2">
             {/* 電腦版右側按鈕 */}
             <div className="hidden md:flex items-center gap-2">
-              <Button variant={currentPage === 'cart' ? 'secondary' : 'ghost'} size="icon" onClick={() => onNavigate('cart')} className="rounded-full relative mr-2">
-                 <ShoppingCart className="w-5 h-5" />
+              <Button
+                variant={currentPage === 'cart' ? 'secondary' : 'ghost'}
+                size="icon"
+                onClick={() => onNavigate('cart')}
+                className={`rounded-full relative mr-2 ${currentPage === 'cart' ? '' : 'text-gray-200 hover:text-white hover:bg-slate-800'}`}
+              >
+                <ShoppingCart className="w-5 h-5" />
               </Button>
               {isLoggedIn ? (
-                <Button variant={currentPage === 'profile' ? 'default' : 'outline'} size="sm" onClick={() => handleNavigate('profile')} className="rounded-full">
+                <Button
+                  variant={currentPage === 'profile' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => handleNavigate('profile')}
+                  className={`rounded-full border border-slate-700 ${currentPage === 'profile' ? '' : 'text-gray-200 hover:text-white hover:bg-slate-800'}`}
+                >
                   <User className="w-4 h-4 mr-2" /> 個人資料
                 </Button>
               ) : (
                 <>
-                  <Button variant="ghost" size="sm" onClick={() => handleNavigate('login')} className="rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleNavigate('login')}
+                    className="rounded-full text-gray-200 hover:text-white hover:bg-slate-800"
+                  >
                     <LogIn className="w-4 h-4 mr-2" /> 登入
                   </Button>
-                  <Button variant="default" size="sm" onClick={() => handleNavigate('register')} className="rounded-full">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleNavigate('register')}
+                    className="rounded-full"
+                  >
                     <UserPlus className="w-4 h-4 mr-2" /> 註冊
                   </Button>
                 </>
               )}
             </div>
 
-            {/* ✨ 補上：手機版漢堡按鈕 (md:hidden 讓它只在手機版顯示) ✨ */}
+            {/* 手機版漢堡按鈕 */}
             <div className="md:hidden flex items-center">
-              <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-200 hover:text-white hover:bg-slate-800"
+              >
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </Button>
             </div>
@@ -216,7 +257,7 @@ export function Navigation({ currentPage, onNavigate, isLoggedIn }: NavigationPr
         </div>
       </div>
 
-      {/* ✨ 補上：手機版下拉選單邏輯 ✨ */}
+      {/* 手機版下拉選單邏輯 (白底不用改字體顏色) */}
       {isMenuOpen && (
         <div className="md:hidden bg-white/70 backdrop-blur-md border border-white/40 shadow-2xl absolute left-4 right-4 top-[76px] rounded-2xl p-1 z-40">
           <div className="px-4 pt-2 pb-4 space-y-2 flex flex-col">
