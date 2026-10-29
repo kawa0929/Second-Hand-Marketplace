@@ -10,60 +10,70 @@ interface SellerDashboardPageProps {
     onNavigate: (page: string) => void;
 }
 
-// 模擬的折線圖資料 (近七天流量與銷售額)
-const weeklyData = [
-    { name: '週一', views: 120, sales: 1500 },
-    { name: '週二', views: 200, sales: 3200 },
-    { name: '週三', views: 150, sales: 800 },
-    { name: '週四', views: 280, sales: 4500 },
-    { name: '週五', views: 350, sales: 6000 },
-    { name: '週六', views: 420, sales: 8500 },
-    { name: '週日', views: 380, sales: 7200 },
-];
-
 export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
-    // 建立 State 存取真實商品數據
+    // 圖表與商品清單 State
     const [chartData, setChartData] = useState<any[]>([]);
+    const [weeklyData, setWeeklyData] = useState<any[]>([]);
+
+    // KPI 數據 State
     const [stats, setStats] = useState({
         totalViews: 0,
         activeProducts: 0,
+        totalSales: 0,
+        conversionRate: 0,
+        salesGrowth: 0, // 銷售額成長率
+        conversionGrowth: 0 // 轉換成長率
     });
+
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchSellerData = async () => {
-            // 1. 取得登入的使用者資訊
             const userStr = localStorage.getItem('user');
-            if (!userStr) return;
+            if (!userStr) {
+                setIsLoading(false);
+                return;
+            }
             const user = JSON.parse(userStr);
 
             try {
-                // 2. 向後端要該賣家的所有商品
-                const res = await fetch(`/api/products?sellerEmail=${user.email}`);
-                const data = await res.json();
+                // 1. 獲取商品清單 (提供給長條圖與商品總數/瀏覽量)
+                const productsRes = await fetch(`/api/products?sellerEmail=${user.email}`);
+                const productsData = await productsRes.json();
 
-                if (data.success && data.products) {
-                    // 🌟 核心修正：增加前端過濾，確保只顯示屬於目前使用者的商品
-                    const myProductsOnly = data.products.filter((p: any) => p.sellerEmail === user.email);
+                // 2. 獲取賣家儀表板統計資料 (提供給折線圖、銷售額、轉換率)
+                // 註：這需要你的後端建立一隻對應的 API
+                const dashboardRes = await fetch(`/api/seller/dashboard?sellerEmail=${user.email}`);
+                const dashboardData = dashboardRes.ok ? await dashboardRes.json() : null;
 
-                    // 3. 轉換資料格式給 BarChart 使用 (只處理自己的商品)
+                if (productsData.success && productsData.products) {
+                    const myProductsOnly = productsData.products.filter((p: any) => p.sellerEmail === user.email);
+
+                    // 處理熱門商品長條圖資料
                     const formattedData = myProductsOnly.map((product: any) => ({
                         name: product.title,
-                        views: product.views || 0 // 確保有數值
+                        views: product.views || 0
                     }));
-
-                    // 4. 依照瀏覽次數排序 (從高到低)，只取前 5 名
                     formattedData.sort((a: any, b: any) => b.views - a.views);
-                    const topProducts = formattedData.slice(0, 5);
+                    setChartData(formattedData.slice(0, 5));
 
-                    setChartData(topProducts);
-
-                    // 5. 計算核心數據 (只統計自己的商品)
                     const totalViews = myProductsOnly.reduce((sum: number, p: any) => sum + (p.views || 0), 0);
+
+                    // 整合所有數據到 State
                     setStats({
                         totalViews: totalViews,
-                        activeProducts: myProductsOnly.length
+                        activeProducts: myProductsOnly.length,
+                        // 如果 dashboard API 有回傳資料就用真實的，否則預設為 0
+                        totalSales: dashboardData?.totalSales || 0,
+                        conversionRate: dashboardData?.conversionRate || 0,
+                        salesGrowth: dashboardData?.salesGrowth || 0,
+                        conversionGrowth: dashboardData?.conversionGrowth || 0
                     });
+
+                    // 設定七天走勢圖資料
+                    if (dashboardData?.weeklyData) {
+                        setWeeklyData(dashboardData.weeklyData);
+                    }
                 }
             } catch (error) {
                 console.error("抓取賣家數據失敗:", error);
@@ -96,14 +106,17 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground mb-1">本月總銷售額</p>
-                                    <h3 className="text-3xl font-bold text-primary">NT$ 31,700</h3>
+                                    <h3 className="text-3xl font-bold text-primary">
+                                        {isLoading ? "---" : `NT$ ${stats.totalSales.toLocaleString()}`}
+                                    </h3>
                                 </div>
                                 <div className="p-3 bg-primary/10 rounded-xl text-primary">
                                     <DollarSign className="w-6 h-6" />
                                 </div>
                             </div>
-                            <p className="text-sm text-green-600 mt-4 flex items-center gap-1">
-                                <TrendingUp className="w-4 h-4" /> 較上月成長 12.5%
+                            <p className={`text-sm mt-4 flex items-center gap-1 ${stats.salesGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                <TrendingUp className={`w-4 h-4 ${stats.salesGrowth < 0 && 'rotate-180'}`} />
+                                較上月{stats.salesGrowth >= 0 ? '成長' : '衰退'} {Math.abs(stats.salesGrowth)}%
                             </p>
                         </CardContent>
                     </Card>
@@ -147,14 +160,17 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground mb-1">訂單轉換率</p>
-                                    <h3 className="text-3xl font-bold">4.8%</h3>
+                                    <h3 className="text-3xl font-bold">
+                                        {isLoading ? "---" : `${stats.conversionRate}%`}
+                                    </h3>
                                 </div>
                                 <div className="p-3 bg-purple-100 rounded-xl text-purple-600">
                                     <TrendingUp className="w-6 h-6" />
                                 </div>
                             </div>
-                            <p className="text-sm text-green-600 mt-4 flex items-center gap-1">
-                                <TrendingUp className="w-4 h-4" /> 較上月成長 1.1%
+                            <p className={`text-sm mt-4 flex items-center gap-1 ${stats.conversionGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                <TrendingUp className={`w-4 h-4 ${stats.conversionGrowth < 0 && 'rotate-180'}`} />
+                                較上月{stats.conversionGrowth >= 0 ? '成長' : '衰退'} {Math.abs(stats.conversionGrowth)}%
                             </p>
                         </CardContent>
                     </Card>
@@ -168,19 +184,23 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                         <CardContent className="p-6">
                             <h3 className="text-lg font-bold mb-6">近七天銷售與流量走勢</h3>
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={weeklyData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} dy={10} />
-                                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-                                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        />
-                                        <Line yAxisId="left" type="monotone" dataKey="sales" name="銷售額(NT$)" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} />
-                                        <Line yAxisId="right" type="monotone" dataKey="views" name="瀏覽量(次)" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                {isLoading ? (
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">數據讀取中...</div>
+                                ) : weeklyData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={weeklyData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} dy={10} />
+                                            <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                            <Line yAxisId="left" type="monotone" dataKey="sales" name="銷售額(NT$)" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} />
+                                            <Line yAxisId="right" type="monotone" dataKey="views" name="瀏覽量(次)" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">尚無走勢數據</div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -198,10 +218,7 @@ export function SellerDashboardPage({ onNavigate }: SellerDashboardPageProps) {
                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
                                             <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
                                             <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#333', fontSize: 12 }} width={100} />
-                                            <Tooltip
-                                                cursor={{ fill: '#f8fafc' }}
-                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                            />
+                                            <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                                             <Bar dataKey="views" name="瀏覽次數" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
                                         </BarChart>
                                     </ResponsiveContainer>

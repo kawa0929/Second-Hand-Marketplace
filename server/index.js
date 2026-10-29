@@ -6,7 +6,19 @@ const bcrypt = require('bcryptjs');
 const serviceAccount = require('./firebase-key.json'); // 引入你的金鑰
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+// 違禁品關鍵字清單
+const BANNED_KEYWORDS = [
+    '炸藥', '槍械', '手槍', '子彈', '毒品', '大麻', '安非他命',
+    '海洛因', '迷藥', '催情水', '贓車', '仿冒品'
+];
 
+// 檢查字串是否包含違禁詞的通用函式
+const checkBannedWords = (text) => {
+    if (!text) return null;
+    // 找出第一個匹配的違禁詞並回傳，若無則回傳 null
+    const foundWord = BANNED_KEYWORDS.find(keyword => text.includes(keyword));
+    return foundWord;
+};
 
 const app = express();
 app.use(cors());
@@ -1174,6 +1186,71 @@ app.post('/api/generate-tags', async (req, res) => {
         }
 
         res.json({ success: false, isPass: false, reason: `系統驗證異常: ${errorString}` });
+    }
+});
+
+// 在 server/index.js 中加入以下路由：
+
+app.get('/api/seller/dashboard', async (req, res) => {
+    try {
+        const sellerEmail = req.query.sellerEmail;
+
+        if (!sellerEmail) {
+            return res.status(400).json({ success: false, message: "缺少賣家 Email" });
+        }
+
+        // TODO: 未來這裡要替換成從資料庫 (如 Firebase 或 SQL) 撈取真實的銷售與流量數據
+        // 目前先回傳測試用的數據結構，確保前端能成功接到並渲染
+        res.json({
+            success: true,
+            totalSales: 31700,
+            salesGrowth: 12.5,
+            conversionRate: 4.8,
+            conversionGrowth: 1.1,
+            weeklyData: [
+                { name: "週一", views: 120, sales: 1500 },
+                { name: "週二", views: 200, sales: 3200 },
+                { name: "週三", views: 150, sales: 800 },
+                { name: "週四", views: 280, sales: 4500 },
+                { name: "週五", views: 350, sales: 6000 },
+                { name: "週六", views: 420, sales: 8500 },
+                { name: "週日", views: 380, sales: 7200 }
+            ]
+        });
+    } catch (error) {
+        console.error("獲取賣家儀表板數據失敗:", error);
+        res.status(500).json({ success: false, message: "伺服器錯誤" });
+    }
+});
+
+app.post('/api/products', async (req, res) => {
+    try {
+        const { title, description, price, sellerEmail } = req.body;
+
+        // 1. 檢查標題是否包含違禁字
+        const bannedInTitle = checkBannedWords(title);
+        if (bannedInTitle) {
+            return res.status(400).json({
+                success: false,
+                message: `商品名稱包含違禁關鍵字：「${bannedInTitle}」，請修改後再試。`
+            });
+        }
+
+        // 2. 檢查描述是否包含違禁字
+        const bannedInDesc = checkBannedWords(description);
+        if (bannedInDesc) {
+            return res.status(400).json({
+                success: false,
+                message: `商品描述包含違禁關鍵字：「${bannedInDesc}」，請修改後再試。`
+            });
+        }
+
+        // 通過關鍵字檢查，繼續原本的資料庫寫入或 AI 圖片審查邏輯...
+        // ...
+
+    } catch (error) {
+        console.error("刊登失敗:", error);
+        res.status(500).json({ success: false, message: "伺服器錯誤" });
     }
 });
 

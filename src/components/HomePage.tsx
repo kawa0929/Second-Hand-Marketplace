@@ -13,6 +13,19 @@ interface HomePageProps {
   isLoggedIn?: boolean;
 }
 
+// ── Hero background pool — one is picked at random on every mount ────────────
+const HERO_FALLBACK =
+  "https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=1800&q=85";
+
+const HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1800&q=85", // boutique shelves
+  "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=1800&q=85", // thrift clothing rack
+  "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1800&q=85", // folded vintage clothes
+  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1800&q=85",    // vintage furniture
+  "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1800&q=85", // clothing store
+  "https://images.unsplash.com/photo-1567016376408-0226e4d0c1ea?w=1800&q=85", // second-hand interior
+];
+
 const categories = [
   { id: "electronics", name: "電子產品", bracketName: "[ 電子產品 ]", img: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80", Icon: Laptop },
   { id: "furniture", name: "家具", bracketName: "[ 家具 ]", img: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80", Icon: Sofa },
@@ -69,6 +82,15 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isRecognizing, setIsRecognizing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🎲 Random hero image — empty on first render, chosen after mount
+  // (avoids server/client hydration mismatch)
+  const [heroImage, setHeroImage] = useState("");
+
+  useEffect(() => {
+    const randomIndex = Math.floor(Math.random() * HERO_IMAGES.length);
+    setHeroImage(HERO_IMAGES[randomIndex]);
+  }, []);
 
   // ── Parallax & Scroll setup ──────────────────────────────────────────────────
   const heroRef = useRef<HTMLElement>(null);
@@ -153,8 +175,8 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       // 1. 上傳到 ImgBB
       const formData = new FormData();
       formData.append("image", file);
-      const imgbbKey = "f428676453b3be7a71b6eb5ffe777c91"; 
-      
+      const imgbbKey = "f428676453b3be7a71b6eb5ffe777c91";
+
       const uploadRes = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
         method: "POST",
         body: formData,
@@ -164,7 +186,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       if (!uploadData.success) {
         throw new Error("圖片上傳失敗");
       }
-      
+
       const imageUrl = uploadData.data.url;
 
       // 2. 將網址傳給後端進行 Google Lens 辨識
@@ -200,16 +222,20 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section
         ref={heroRef}
-        className="relative w-full h-screen min-h-[600px] overflow-hidden -mt-[var(--nav-height,0px)]"
+        className="relative w-full h-screen min-h-[600px] overflow-hidden bg-gray-900 -mt-[var(--nav-height,0px)]"
       >
-        {/* Parallax image — moves slower than scroll */}
-        <motion.img
-          src="https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=1800&q=85"
-          alt="hero background"
-          style={{ y: parallaxY, scale: 1.15 }}
-          className="absolute inset-0 w-full h-full object-cover object-center select-none origin-top"
-          draggable={false}
-        />
+        {/* Parallax image — random per visit, moves slower than scroll */}
+        {heroImage && (
+          <motion.img
+            key={heroImage}
+            src={heroImage}
+            alt="hero background"
+            onError={() => { if (heroImage !== HERO_FALLBACK) setHeroImage(HERO_FALLBACK); }}
+            style={{ y: parallaxY, scale: 1.15 }}
+            className="absolute inset-0 w-full h-full object-cover object-center select-none origin-top"
+            draggable={false}
+          />
+        )}
 
         {/* Scrim */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10 pointer-events-none" />
@@ -224,7 +250,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
               transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
               className="text-white/55 text-xs tracking-[0.25em] uppercase mb-4 font-medium"
             >
-              二手好物市集
+              物遇 WUYU
             </motion.p>
 
             {/* Headline lines — each clips up independently */}
@@ -236,7 +262,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                 animate="visible"
                 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.1] tracking-tight"
               >
-                讓閒置物品，
+                讓對的好物，
               </motion.h1>
             </div>
             <div className="overflow-hidden">
@@ -247,7 +273,7 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
                 animate="visible"
                 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.1] tracking-tight"
               >
-                找到新的歸屬
+                遇見對的人
               </motion.h1>
             </div>
 
@@ -255,9 +281,9 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.55, ease: "easeOut" }}
-              className="mt-4 text-white/65 text-base max-w-sm leading-relaxed"
+              className="mt-4 text-white/65 text-base max-w-xl leading-relaxed"
             >
-              探索社群中的優質二手商品，享受超值好價格。
+              運用 AI 智慧技術，讓閒置物品找回被遺忘的價值。這不僅是物品的轉手，更是資源價值的延續，打造更便利、智慧的二手交易體驗。
             </motion.p>
           </motion.div>
 
@@ -520,8 +546,8 @@ export function HomePage({ onNavigate, isLoggedIn }: HomePageProps) {
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <footer className="border-t border-gray-100 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">二手好物市集</p>
-          <p className="text-xs text-gray-400">© 2026 二手好物市集管理平台．All rights reserved.</p>
+          <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">物遇 WUYU</p>
+          <p className="text-xs text-gray-400">© 2026 物遇 WUYU．All rights reserved.</p>
         </div>
       </footer>
 

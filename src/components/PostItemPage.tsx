@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { generateHighConversionDescription } from "../utils/aiHelpers";
 
+
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
   aiGeneratedData?: any;
