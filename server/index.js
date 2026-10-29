@@ -1177,6 +1177,40 @@ app.post('/api/generate-tags', async (req, res) => {
     }
 });
 
+// 在 server/index.js 中加入以下路由：
+
+app.get('/api/seller/dashboard', async (req, res) => {
+    try {
+        const sellerEmail = req.query.sellerEmail;
+
+        if (!sellerEmail) {
+            return res.status(400).json({ success: false, message: "缺少賣家 Email" });
+        }
+
+        // TODO: 未來這裡要替換成從資料庫 (如 Firebase 或 SQL) 撈取真實的銷售與流量數據
+        // 目前先回傳測試用的數據結構，確保前端能成功接到並渲染
+        res.json({
+            success: true,
+            totalSales: 31700,
+            salesGrowth: 12.5,
+            conversionRate: 4.8,
+            conversionGrowth: 1.1,
+            weeklyData: [
+                { name: "週一", views: 120, sales: 1500 },
+                { name: "週二", views: 200, sales: 3200 },
+                { name: "週三", views: 150, sales: 800 },
+                { name: "週四", views: 280, sales: 4500 },
+                { name: "週五", views: 350, sales: 6000 },
+                { name: "週六", views: 420, sales: 8500 },
+                { name: "週日", views: 380, sales: 7200 }
+            ]
+        });
+    } catch (error) {
+        console.error("獲取賣家儀表板數據失敗:", error);
+        res.status(500).json({ success: false, message: "伺服器錯誤" });
+    }
+});
+
 // ── 伺服器監聽 ──
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
