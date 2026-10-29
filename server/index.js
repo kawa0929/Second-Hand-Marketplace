@@ -6,7 +6,19 @@ const bcrypt = require('bcryptjs');
 const serviceAccount = require('./firebase-key.json'); // 引入你的金鑰
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+// 違禁品關鍵字清單
+const BANNED_KEYWORDS = [
+    '炸藥', '槍械', '手槍', '子彈', '毒品', '大麻', '安非他命',
+    '海洛因', '迷藥', '催情水', '贓車', '仿冒品'
+];
 
+// 檢查字串是否包含違禁詞的通用函式
+const checkBannedWords = (text) => {
+    if (!text) return null;
+    // 找出第一個匹配的違禁詞並回傳，若無則回傳 null
+    const foundWord = BANNED_KEYWORDS.find(keyword => text.includes(keyword));
+    return foundWord;
+};
 
 const app = express();
 app.use(cors());
@@ -1207,6 +1219,37 @@ app.get('/api/seller/dashboard', async (req, res) => {
         });
     } catch (error) {
         console.error("獲取賣家儀表板數據失敗:", error);
+        res.status(500).json({ success: false, message: "伺服器錯誤" });
+    }
+});
+
+app.post('/api/products', async (req, res) => {
+    try {
+        const { title, description, price, sellerEmail } = req.body;
+
+        // 1. 檢查標題是否包含違禁字
+        const bannedInTitle = checkBannedWords(title);
+        if (bannedInTitle) {
+            return res.status(400).json({
+                success: false,
+                message: `商品名稱包含違禁關鍵字：「${bannedInTitle}」，請修改後再試。`
+            });
+        }
+
+        // 2. 檢查描述是否包含違禁字
+        const bannedInDesc = checkBannedWords(description);
+        if (bannedInDesc) {
+            return res.status(400).json({
+                success: false,
+                message: `商品描述包含違禁關鍵字：「${bannedInDesc}」，請修改後再試。`
+            });
+        }
+
+        // 通過關鍵字檢查，繼續原本的資料庫寫入或 AI 圖片審查邏輯...
+        // ...
+
+    } catch (error) {
+        console.error("刊登失敗:", error);
         res.status(500).json({ success: false, message: "伺服器錯誤" });
     }
 });
