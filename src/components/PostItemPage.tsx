@@ -76,7 +76,9 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
 
     const IMGBB_API_KEYS = [
       "f428676453b3be7a71b6eb5ffe777c91",
-      "56b4b5dbdd71601bcf28d83010505b19"
+      "56b4b5dbdd71601bcf28d83010505b19",
+      "d2893b4979ab078bdb7d50c33596cefe",
+      "e033d5abd128904bb8d5d77911284a53"
     ];
 
     let uploadSuccess = false;
