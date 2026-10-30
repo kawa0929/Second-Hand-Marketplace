@@ -144,33 +144,52 @@ export function SellerProfilePage({ onNavigate, sellerEmail }: SellerProfilePage
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {products.map((product) => (
-                            <Card
-                                key={product.id}
-                                className="group cursor-pointer hover:shadow-lg transition-all rounded-2xl border-border overflow-hidden bg-white"
-                                onClick={() => onNavigate('product-detail', product.id)}
-                            >
-                                <div className="relative aspect-square overflow-hidden bg-neutral-100">
-                                    <ImageWithFallback
-                                        src={product.image || ""}
-                                        alt={product.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                    <div className="absolute top-3 left-3">
-                                        <Badge variant="secondary" className="rounded-full shadow-sm">
-                                            {product.status || "上架中"}
-                                        </Badge>
-                                    </div>
-                                </div>
-                                <CardContent className="p-4">
-                                    <div className="mb-1 font-medium truncate">{product.title}</div>
-                                    <div className="mb-3 text-primary font-bold text-lg">
-                                        {product.price}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+    {products.map((product) => (
+        <Card
+            key={product.id}
+            // 🌟 1. 動態加入 CSS：如果狀態是 '已下架'，加上 opacity-50 與 cursor-not-allowed；反之則加上 hover 效果
+            className={`group rounded-2xl border-border overflow-hidden bg-white transition-all 
+                ${product.status === '已下架' 
+                    ? 'opacity-50 cursor-not-allowed grayscale-[50%]' // 下架的視覺效果：變半透明、禁止符號、微灰階
+                    : 'cursor-pointer hover:shadow-lg'               // 正常上架的視覺效果
+                }`}
+            
+            // 🌟 2. 阻斷跳轉邏輯：點擊時先判斷狀態
+            onClick={() => {
+                if (product.status === '已下架') {
+                    // 如果已下架，可以選擇跳出提示，或直接 return 什麼都不做
+                    toast.info("此商品已下架");
+                    return; 
+                }
+                onNavigate('product-detail', product.id);
+            }}
+        >
+            <div className="relative aspect-square overflow-hidden bg-neutral-100">
+                <ImageWithFallback
+                    src={product.image || ""}
+                    alt={product.title}
+                    // 如果下架，取消 hover 放大效果
+                    className={`w-full h-full object-cover transition-transform duration-300 ${product.status !== '已下架' && 'group-hover:scale-105'}`}
+                />
+                <div className="absolute top-3 left-3">
+                    {/* 🌟 3. 如果下架，徽章可以換個顏色 (variant="destructive" 或套用灰色) */}
+                    <Badge 
+                        variant={product.status === '已下架' ? 'outline' : 'secondary'} 
+                        className={`rounded-full shadow-sm ${product.status === '已下架' ? 'bg-neutral-200 text-neutral-500' : ''}`}
+                    >
+                        {product.status || "上架中"}
+                    </Badge>
+                </div>
+            </div>
+            <CardContent className="p-4">
+                <div className="mb-1 font-medium truncate">{product.title}</div>
+                <div className="mb-3 text-primary font-bold text-lg">
+                    {product.price}
+                </div>
+            </CardContent>
+        </Card>
+    ))}
+</div>
                 )}
             </div>
         </div>
