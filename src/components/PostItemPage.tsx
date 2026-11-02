@@ -77,8 +77,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     const IMGBB_API_KEYS = [
       "f428676453b3be7a71b6eb5ffe777c91",
       "56b4b5dbdd71601bcf28d83010505b19",
-      "d2893b4979ab078bdb7d50c33596cefe",
-      "e033d5abd128904bb8d5d77911284a53"
+      "7378958886669aace959794f76c7f1b3",
+      "054566e24092525ff90d92cc6e87d154"
     ];
 
     let uploadSuccess = false;
@@ -92,12 +92,12 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
         formData.append("image", file);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
           method: "POST",
           body: formData,
-          signal: controller.signal
+        signal: controller.signal
         });
 
         clearTimeout(timeoutId);
