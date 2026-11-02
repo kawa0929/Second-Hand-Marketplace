@@ -1350,9 +1350,14 @@ app.post('/api/products', async (req, res) => {
     }
 });
 // ── 伺服器監聽 ──
+/*
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`🚀 伺服器運行在 http://localhost:${PORT}`);
 });
-
+*/
+// ✅ 加上這段，當你直接打開後端網址時就會看到成功訊息
+app.get('/', (req, res) => {
+    res.send('✅ 二手拍賣 API 伺服器成功上線運行中！');
+});
 module.exports = app;
