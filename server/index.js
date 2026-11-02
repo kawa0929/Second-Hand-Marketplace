@@ -14,11 +14,28 @@ const BANNED_KEYWORDS = [
 const { Storage } = require('@google-cloud/storage');
 
 // 初始化 GCS
-const storage = new Storage({
-    keyFilename: './gcp-key.json', // 確保這個檔案已經放在專案根目錄
-});
-// 替換成你剛剛建立的 Bucket 名稱
-const bucket = storage.bucket('my-project-large-arrays');
+const { Storage } = require('@google-cloud/storage');
+let storage;
+
+// 如果環境變數裡有 GCP_PRIVATE_KEY，代表現在是在 Vercel 上執行
+if (process.env.GCP_PRIVATE_KEY) {
+    storage = new Storage({
+        projectId: process.env.GCP_PROJECT_ID,
+        credentials: {
+            client_email: process.env.GCP_CLIENT_EMAIL,
+            // 必須做 replace，確保 Vercel 上的換行符號 \n 能被正確解析
+            private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }
+    });
+} else {
+    // 如果沒有環境變數，代表是在你的電腦上開發，就去讀取原本的 JSON 檔
+    storage = new Storage({
+        keyFilename: './gcp-key.json'
+    });
+}
+
+const bucket = storage.bucket('my-project-large-arrays'); // 確保這裡是你的 bucket 名稱
+
 
 // 檢查字串是否包含違禁詞的通用函式
 const checkBannedWords = (text) => {
