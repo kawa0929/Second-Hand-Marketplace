@@ -3,59 +3,67 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs');
-const serviceAccount = require('./firebase-key.json'); // 引入你的金鑰
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { Storage } = require('@google-cloud/storage');
+
 // 違禁品關鍵字清單
 const BANNED_KEYWORDS = [
     '炸藥', '槍械', '手槍', '子彈', '毒品', '大麻', '安非他命',
     '海洛因', '迷藥', '催情水', '贓車', '仿冒品'
 ];
-const { Storage } = require('@google-cloud/storage');
 
-// 初始化 GCS
-const { Storage } = require('@google-cloud/storage');
-let storage;
-
-// 如果環境變數裡有 GCP_PRIVATE_KEY，代表現在是在 Vercel 上執行
+// --- 1. 初始化 Firebase -------------------
 if (process.env.GCP_PRIVATE_KEY) {
+    // Vercel 雲端環境：使用環境變數
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId: process.env.GCP_PROJECT_ID,
+            clientEmail: process.env.GCP_CLIENT_EMAIL,
+            privateKey: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        })
+    });
+} else {
+    // 本機環境：讀取實體 JSON 檔案 (請確保你的檔名是 firebase-key.json)
+    const serviceAccount = require('./firebase-key.json');
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+    });
+}
+const db = admin.firestore();
+console.log('✅ 成功連線到 Firebase Firestore 資料庫！');
+
+// --- 2. 初始化 GCS ------------------------
+let storage;
+if (process.env.GCP_PRIVATE_KEY) {
+    // Vercel 雲端環境
     storage = new Storage({
         projectId: process.env.GCP_PROJECT_ID,
         credentials: {
             client_email: process.env.GCP_CLIENT_EMAIL,
-            // 必須做 replace，確保 Vercel 上的換行符號 \n 能被正確解析
             private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
         }
     });
 } else {
-    // 如果沒有環境變數，代表是在你的電腦上開發，就去讀取原本的 JSON 檔
+    // 本機環境
     storage = new Storage({
         keyFilename: './gcp-key.json'
     });
 }
+const bucket = storage.bucket('my-project-large-arrays');
 
-const bucket = storage.bucket('my-project-large-arrays'); // 確保這裡是你的 bucket 名稱
-
-
+// --- 3. 輔助函式與 Express 初始化 -----------
 // 檢查字串是否包含違禁詞的通用函式
 const checkBannedWords = (text) => {
     if (!text) return null;
-    // 找出第一個匹配的違禁詞並回傳，若無則回傳 null
     const foundWord = BANNED_KEYWORDS.find(keyword => text.includes(keyword));
-    return foundWord;
+    return foundWord || null;
 };
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// 🌟 1. 初始化 Firebase 連線
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
-const db = admin.firestore();
-console.log('✅ 成功連線到 Firebase Firestore 資料庫！');
 
 let otpStore = {};
 
@@ -1341,9 +1349,10 @@ app.post('/api/products', async (req, res) => {
         res.status(500).json({ success: false, message: "伺服器錯誤" });
     }
 });
-
 // ── 伺服器監聽 ──
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`🚀 伺服器運行在 http://localhost:${PORT}`);
 });
+
+module.exports = app;
