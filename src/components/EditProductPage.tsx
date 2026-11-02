@@ -49,8 +49,16 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     setCategory(p.category);
                     setCondition(p.condition);
                     setStatus(p.status || "上架中");
-                    setImages(p.images || []);
-                    
+
+                    // 🌟 修正 1：相容舊的 imageUrl 單字串，以及新的 images 陣列
+                    if (p.images && p.images.length > 0) {
+                        setImages(p.images);
+                    } else if (p.imageUrl) {
+                        setImages([p.imageUrl]);
+                    } else {
+                        setImages([]);
+                    }
+
                     if (p.tags && Array.isArray(p.tags)) {
                         setTags(p.tags.join(', '));
                     }
@@ -58,7 +66,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                     if (p.variations && p.variations.length > 0) {
                         setVariations(p.variations.map((v: any, index: number) => ({
                             id: Date.now().toString() + index,
-                            name: v.name === "單一款式" ? "" : v.name, // 如果是預設值，在編輯時清空
+                            name: v.name === "單一款式" ? "" : v.name,
                             price: v.price.toString(),
                             stock: v.stock.toString()
                         })));
@@ -98,38 +106,26 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         }
 
         setIsUploading(true);
-        const IMGBB_API_KEY = "56b4b5dbdd71601bcf28d83010505b19";
 
+        // 🌟 修正 2：拔除 ImgBB，改為轉成 Base64 讓後端去上傳 GCS
         try {
-            const formData = new FormData();
-            formData.append("image", file);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-            const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-                method: "POST",
-                body: formData,
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-            const result = await response.json();
-
-            if (result.success) {
-                setImages((prev) => [...prev, result.data.url]);
-                toast.success("照片上傳成功！📸");
-            } else {
-                throw new Error("ImgBB API 回傳失敗");
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64String = reader.result as string;
+                setImages((prev) => [...prev, base64String]);
+                toast.success("照片已預覽！按下「儲存變更」後將上傳至雲端 📸");
+                setIsUploading(false);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            };
+            reader.onerror = () => {
+                toast.error("圖片讀取失敗");
+                setIsUploading(false);
             }
         } catch (error) {
-            console.warn("上傳到 ImgBB 失敗，啟動備用機制:", error);
-            const localPreviewUrl = URL.createObjectURL(file);
-            setImages((prev) => [...prev, localPreviewUrl]);
-            toast.info("已啟用本機圖片預覽模式！");
-        } finally {
+            console.error("圖片處理失敗", error);
+            toast.error("處理圖片發生錯誤");
             setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = "";
         }
     };
 
@@ -215,7 +211,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
             price: Number(variations[0].price),
             stock: variations.reduce((sum, v) => sum + parseInt(v.stock), 0),
             variations: variations.map(v => ({
-                name: v.name.trim() || "單一款式", // 🌟 如果沒填，自動補上預設名稱
+                name: v.name.trim() || "單一款式",
                 price: Number(v.price),
                 stock: parseInt(v.stock)
             })),
@@ -321,7 +317,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                         className="aspect-square rounded-xl border-2 border-dashed border-neutral-300 hover:border-primary transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Upload className={`w-6 h-6 ${isUploading ? 'animate-bounce' : 'text-neutral-400'}`} />
-                                        <span className="text-sm text-neutral-500">{isUploading ? '上傳中...' : '新增照片'}</span>
+                                        <span className="text-sm text-neutral-500">{isUploading ? '處理中...' : '新增照片'}</span>
                                     </button>
                                 )}
                             </div>
@@ -381,8 +377,7 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                {/* 🌟 步驟 5：新增 AI 標籤輸入區塊 */}
-                                <div className="space-y-2 pt-2 border-t mt-4">
+                                <div className="space-y-2 pt-2 border-t mt-4 col-span-2">
                                     <div className="flex justify-between items-end mb-2">
                                         <div>
                                             <Label htmlFor="tags">隱藏搜尋標籤 (SEO)</Label>

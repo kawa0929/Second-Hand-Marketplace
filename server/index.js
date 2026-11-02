@@ -11,6 +11,14 @@ const BANNED_KEYWORDS = [
     '炸藥', '槍械', '手槍', '子彈', '毒品', '大麻', '安非他命',
     '海洛因', '迷藥', '催情水', '贓車', '仿冒品'
 ];
+const { Storage } = require('@google-cloud/storage');
+
+// 初始化 GCS
+const storage = new Storage({
+    keyFilename: './gcp-key.json', // 確保這個檔案已經放在專案根目錄
+});
+// 替換成你剛剛建立的 Bucket 名稱
+const bucket = storage.bucket('my-project-large-arrays');
 
 // 檢查字串是否包含違禁詞的通用函式
 const checkBannedWords = (text) => {
@@ -254,12 +262,8 @@ app.post('/api/update-profile', async (req, res) => {
 // 8. 刊登商品 API (支援多規格 variations)
 app.post('/api/post-item', async (req, res) => {
     try {
-
-        // 🌟 1. 解構出 verifiedBadge
+        // 🌟 1. 解構前端傳來的資料 (注意：這裡保留 images 或 array 變數)
         const { title, description, category, condition, price, stock, location, images, sellerEmail, variations, verifiedBadge, tags } = req.body;
-
-
-
 
         const newProduct = {
             title,
@@ -270,21 +274,76 @@ app.post('/api/post-item', async (req, res) => {
             stock: Number(stock) || 1,
             location: location || "",
             sellerEmail,
-            images,
             variations: variations || [],
-            verifiedBadge: verifiedBadge || false, // 🌟 2. 將標章狀態寫入資料庫
-            tags: tags || [], // 🌟 2. 將前端傳來的標籤陣列存入資料庫（若無則預設為空陣列）
+            verifiedBadge: verifiedBadge || false,
+            tags: tags || [],
             status: '上架中',
             views: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
+            // 注意：我們故意先不把 images 存進去，等上傳完拿到網址再加
         };
-        
-        // ... (保留你底下原本寫入資料庫的 docRef 程式碼) ...
 
+        // ================= 新增：多圖片處理與 GCS 上傳邏輯 =================
+        if (images && Array.isArray(images)) {
+            try {
+                console.log("開始處理圖片陣列...");
+                const processedImages = [];
+
+                for (let i = 0; i < images.length; i++) {
+                    const img = images[i];
+
+                    // 狀況 A：如果是 base64 字串，代表是剛拍下/選取的新圖片，需要上傳 GCS
+                    if (typeof img === 'string' && img.startsWith('data:image')) {
+                        const fileName = `products/image_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+                        const file = bucket.file(fileName);
+
+                        const base64Data = img.replace(/^data:image\/\w+;base64,/, "");
+                        const imageBuffer = Buffer.from(base64Data, 'base64');
+
+                        await file.save(imageBuffer, {
+                            contentType: 'image/jpeg',
+                            resumable: false
+                        });
+
+                        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+                        processedImages.push(publicUrl);
+                        console.log(`✅ 第 ${i + 1} 張圖片上傳 GCS 成功:`, publicUrl);
+                    }
+                    // 狀況 B：如果是已經上傳過的 http 網址 (例如 ImgBB)，直接保留存入
+                    else if (typeof img === 'string' && img.startsWith('http')) {
+                        processedImages.push(img);
+                        console.log(`✅ 第 ${i + 1} 張圖片保留原網址:`, img);
+                    }
+                }
+
+                // 🌟 最關鍵的一步：將處理好的陣列存回 newProduct.images，這才是前端要的名字！
+                newProduct.images = processedImages;
+
+            } catch (uploadError) {
+                console.error("❌ 圖片上傳至 GCS 失敗:", uploadError);
+                return res.status(500).json({ success: false, message: '圖片處理失敗，請稍後再試' });
+            }
+        }
+        // ===========================================================
+
+
+        console.log("--- 準備寫入 Firestore 的資料檢查 ---");
+        for (const key in newProduct) {
+            const size = JSON.stringify(newProduct[key])?.length || 0;
+            console.log(`欄位 [${key}] 大小約為: ${size} bytes`);
+        }
+        console.log("-------------------------------------");
+
+        // 寫入 Firestore (這裡已經沒有肥大的原始圖片資料了，只有安全的網址字串)
         const docRef = await db.collection('products').add(newProduct);
-        console.log(`📦 新商品刊登成功: ${title} (包含 ${variations?.length || 1} 種規格, ${tags?.length || 0} 個標籤)`);
+        console.log(`📦 新商品刊登成功: ${newProduct.title} (包含 ${newProduct.variations?.length || 1} 種規格, ${newProduct.tags?.length || 0} 個標籤)`);
 
-        res.status(201).json({ success: true, message: '刊登成功', productId: docRef.id });
+        res.status(201).json({
+            success: true,
+            message: '刊登成功',
+            productId: docRef.id,
+            imageUrl: newProduct.imageUrl
+        });
 
     } catch (error) {
         console.error('❌ 刊登商品錯誤:', error);
@@ -462,9 +521,30 @@ app.get('/api/products/seller/:email', async (req, res) => {
 // 🌟 11. 更新商品資訊 (編輯後存檔用，支援多規格)
 app.put('/api/product/:id', async (req, res) => {
     try {
-        // 請找到這一行，並把漏掉的 variations 補上去
-        const { title, description, category, condition, price, stock, images, tags, variations } = req.body;
+        const productId = req.params.id;
+        const { title, description, category, condition, price, stock, images, variations, tags } = req.body;
 
+        // 1. 處理圖片陣列：如果是 Base64 就上傳到 GCS 換成公開網址
+        const processedImages = [];
+        if (images && Array.isArray(images)) {
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                if (typeof img === 'string' && img.startsWith('data:image')) {
+                    const fileName = `products/image_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+                    const file = bucket.file(fileName);
+
+                    const base64Data = img.replace(/^data:image\/\w+;base64,/, "");
+                    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+                    await file.save(imageBuffer, { contentType: 'image/jpeg', resumable: false });
+                    processedImages.push(`https://storage.googleapis.com/${bucket.name}/${fileName}`);
+                } else if (typeof img === 'string' && img.startsWith('http')) {
+                    processedImages.push(img); // 已經是網址就直接保留
+                }
+            }
+        }
+
+        // 2. 準備要更新的資料物件
         const updateData = {
             title,
             description,
@@ -472,16 +552,15 @@ app.put('/api/product/:id', async (req, res) => {
             condition,
             price: Number(price),
             stock: Number(stock) || 1,
-            images,
-            variations: variations || [], // 🌟 編輯時如果有改規格，存進去
-            tags: tags || [],
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            images: processedImages, // 存入處理好的 GCS 網址陣列
+            variations: variations || [],
+            tags: tags || []
         };
 
-        await db.collection('products').doc(req.params.id).update(updateData);
-        console.log(`📦 商品更新成功: ${title} (ID: ${req.params.id})`);
+        // 3. 執行 Firestore 更新
+        await db.collection('products').doc(productId).update(updateData);
 
-        res.status(200).json({ success: true, message: '更新成功' });
+        res.json({ success: true, message: '商品更新成功' });
     } catch (error) {
         console.error('❌ 更新商品錯誤:', error);
         res.status(500).json({ success: false, message: '伺服器錯誤' });
@@ -538,11 +617,9 @@ app.get('/api/user-stats/:email', async (req, res) => {
 // 🌟 13. 首頁或搜尋獲取所有商品 (支援分類、搜尋與排序)
 app.get('/api/products', async (req, res) => {
     try {
-        // 從前端接收 search (搜尋)、category (分類)、sort (排序) 參數
         const { search, category, sort } = req.query;
         let query = db.collection('products');
 
-        // 1. 執行基礎查詢 (過濾分類)
         if (category && category !== 'all') {
             query = query.where('category', '==', category);
         }
@@ -550,15 +627,12 @@ app.get('/api/products', async (req, res) => {
         const snapshot = await query.get();
         let products = snapshot.docs.map(doc => {
             const data = doc.data();
-
-            // 安全處理日期格式
             let formattedDate = "1970-01-01T00:00:00.000Z";
             if (data.createdAt && typeof data.createdAt.toDate === 'function') {
                 formattedDate = data.createdAt.toDate().toISOString();
             } else if (data.createdAt) {
                 formattedDate = new Date(data.createdAt).toISOString();
             }
-
             return {
                 id: doc.id,
                 ...data,
@@ -567,29 +641,25 @@ app.get('/api/products', async (req, res) => {
             };
         });
 
-        // 2. 關鍵字搜尋過濾 (不分大小寫)
+        // 2. 關鍵字搜尋過濾 (支援空格多關鍵字)
         if (search) {
-            const keyword = search.toLowerCase();
+            const searchTerms = search.toLowerCase().split(/\s+/).filter(term => term.length > 0);
             products = products.filter(p => {
-                const matchTitle = p.title && p.title.toLowerCase().includes(keyword);
-                const matchDesc = p.description && p.description.toLowerCase().includes(keyword);
-                // 🌟 新增：檢查 tags 陣列內是否包含關鍵字
-                const matchTags = p.tags && p.tags.some(tag => tag.toLowerCase().includes(keyword));
-
-                // 只要標題、描述、或標籤其中一個有中，就抓出來！
-                return matchTitle || matchDesc || matchTags;
+                return searchTerms.every(term => {
+                    const matchTitle = p.title && p.title.toLowerCase().includes(term);
+                    const matchDesc = p.description && p.description.toLowerCase().includes(term);
+                    const matchTags = p.tags && p.tags.some(tag => tag.toLowerCase().includes(term));
+                    return matchTitle || matchDesc || matchTags;
+                });
             });
         }
 
         // 3. 排序邏輯
         if (sort === 'price-low') {
-            // 價格：低到高
             products.sort((a, b) => Number(a.price) - Number(b.price));
         } else if (sort === 'price-high') {
-            // 價格：高到低
             products.sort((a, b) => Number(b.price) - Number(a.price));
         } else {
-            // 預設：最新上架 (recent)
             products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         }
 
@@ -599,6 +669,7 @@ app.get('/api/products', async (req, res) => {
         res.status(500).json({ success: false, message: '伺服器錯誤' });
     }
 });
+
 // 🌟 14. 更新商品狀態 (上下架切換)
 app.put('/api/product/:id/status', async (req, res) => {
     try {
@@ -1096,8 +1167,8 @@ app.post('/api/verify-images', async (req, res) => {
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // 確保使用 2.5 版本
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        // 確保使用 3.8 版本
+        const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
         // 1. 嘗試下載圖片，並強制設定 MIME 格式防呆
         const imageParts = await Promise.all(images.map(async (url) => {
