@@ -1,4 +1,7 @@
-require('dotenv').config();
+// 只在非 Vercel 環境下才執行 dotenv，減少啟動負擔
+if (!process.env.VERCEL) {
+    require('dotenv').config();
+}
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
