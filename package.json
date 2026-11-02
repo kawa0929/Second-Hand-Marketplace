@@ -65,7 +65,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "description": "This is a code bundle for Second-Hand Marketplace UI Template. The original project is available at https://www.figma.com/design/pXeCqArBoDK1MaYzBjS70P/Second-Hand-Marketplace-UI-Template.",
   "main": "index.js",
