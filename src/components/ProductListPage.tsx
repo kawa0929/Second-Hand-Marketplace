@@ -443,8 +443,8 @@ export function ProductListPage({ onNavigate, initialSearch = "" }: ProductListP
       {/* ── Footer ── */}
       <footer className="border-t border-gray-100 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">二手好物市集</p>
-          <p className="text-xs text-gray-400">© 2026 二手好物市集管理平台．All rights reserved.</p>
+          <p className="text-xs font-semibold tracking-widest text-gray-900 uppercase">物遇 WUYU</p>
+          <p className="text-xs text-gray-400">© 2026 物遇 WUYU．All rights reserved.</p>
         </div>
       </footer>
     </div>
