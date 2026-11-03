@@ -48,7 +48,7 @@ export function RegisterPage({ onNavigate, onLogin, onAvatarGenerated }: Registe
       });
       const data = await response.json();
       if (data.success) {
-        alert('驗證碼已模擬發送！請去 VS Code 的終端機(後端)查看。');
+        alert('驗證碼已發送！');
       } else {
         alert('發送失敗：' + data.error);
       }
