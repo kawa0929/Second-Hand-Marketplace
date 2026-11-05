@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { generateHighConversionDescription } from "../utils/aiHelpers";
-
+import { BANNED_KEYWORDS } from '../constants'; // 路徑請依你實際存放的位置調整
 
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
@@ -30,7 +30,19 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
   const [category, setCategory] = useState("");
   const [condition, setCondition] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  // --- 違禁詞檢查狀態與函式 ---
+  const [nameError, setNameError] = useState<string>('');
+  const [descError, setDescError] = useState<string>('');
 
+  const checkForbiddenWords = (text: string): string => {
+    if (!text) return '';
+    const foundWord = BANNED_KEYWORDS.find(word => text.includes(word));
+    if (foundWord) {
+      return `⚠️ 請勿輸入違禁詞彙：「${foundWord}」`;
+    }
+    return '';
+  };
+  // ------------------------------
   // 控制 AI 功能的 Loading 狀態
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);
@@ -67,8 +79,8 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("圖片檔案太大囉！請選擇 5MB 以下的照片。");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("圖片檔案太大囉！請選擇 10MB 以下的照片。");
       return;
     }
 
@@ -438,11 +450,15 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                 <Input
                   id="title"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setNameError(checkForbiddenWords(e.target.value));
+                  }}
                   maxLength={60}
                   placeholder="請輸入商品名稱"
                   className="rounded-xl h-11 bg-white border-border"
                 />
+                {descError && <p className="text-sm text-red-500 mt-1">{descError}</p>}
               </div>
 
               <div className="space-y-2">
@@ -471,11 +487,15 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                 <Textarea
                   id="description"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    setDescError(checkForbiddenWords(e.target.value));
+                  }}
                   maxLength={3000}
                   placeholder="最少輸入 5 個字，描述一下商品的使用狀況、尺寸等..."
                   className="rounded-xl min-h-48 bg-white border-border resize-none"
                 />
+                {descError && <p className="text-sm text-red-500 mt-1">{descError}</p>}
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -643,7 +663,12 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
             >
               取消
             </Button>
-            <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isUploading}>
+            <Button
+              type="submit"
+              size="lg"
+              className="flex-1 rounded-full"
+              disabled={isUploading || !!nameError || !!descError || !title || !description}
+            >
               {isUploading ? "圖片上傳中..." : "發布刊登"}
             </Button>
           </div>
