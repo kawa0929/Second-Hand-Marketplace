@@ -462,7 +462,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                   placeholder="請輸入商品名稱"
                   className="rounded-xl h-11 bg-white border-border"
                 />
-                {descError && <p className="text-sm text-red-500 mt-1">{descError}</p>}
+                {nameError && <p className="text-sm text-red-500 mt-1">{nameError}</p>}
               </div>
 
               <div className="space-y-2">
@@ -491,10 +491,7 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
                 <Textarea
                   id="description"
                   value={description}
-                  onChange={(e) => {
-                    setDescription(e.target.value);
-                    setDescError(checkForbiddenWords(e.target.value));
-                  }}
+                  onChange={(e) => setDescription(e.target.value)}
                   maxLength={3000}
                   placeholder="最少輸入 5 個字，描述一下商品的使用狀況、尺寸等..."
                   className="rounded-xl min-h-48 bg-white border-border resize-none"

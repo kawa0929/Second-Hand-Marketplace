@@ -349,21 +349,17 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
                                     <Label>商品名稱 <span className="text-red-500">*</span></Label>
                                     <span className={`text-xs ${title.length > 60 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{title.length}/60</span>
                                 </div>
-                                <Input value={title} onChange={(e) => {
-                                    setTitle(e.target.value);
-                                    setNameError(checkForbiddenWords(e.target.value));
-                                }} maxLength={60} placeholder="請輸入商品名稱" className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
-                                {nameError && <p className="text-sm text-red-500 mt-1">{nameError}</p>}
-                            </div>
+                                <Input value={title} onChange={(e) => 
+                                    setTitle(e.target.value)} maxLength={60} placeholder="請輸入商品名稱" className="rounded-xl h-11 bg-white" required disabled={status === "已下架"} />
+                                {nameError && <p className="text-sm text-red-500 mt-1">{nameError}</p>}                            </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-end">
                                     <Label>商品描述 <span className="text-red-500">*</span></Label>
                                     <span className={`text-xs ${description.length > 3000 || (description.length > 0 && description.length < 5) ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{description.length}/3000</span>
                                 </div>
-                                <Textarea value={description} onChange={(e) => {
-                                    setDescription(e.target.value);
-                                    setDescError(checkForbiddenWords(e.target.value));
-                                }} maxLength={3000} placeholder="最少輸入 5 個字..." className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
+                                <Textarea value={description} onChange={(e) => 
+                                    setDescription(e.target.value)
+                                    } maxLength={3000} placeholder="最少輸入 5 個字..." className="rounded-xl min-h-32 bg-white resize-none" required disabled={status === "已下架"} />
                                 {descError && <p className="text-sm text-red-500 mt-1">{descError}</p>}
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
