@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { generateHighConversionDescription } from "../utils/aiHelpers";
-import { BANNED_KEYWORDS } from '../constants'; // 路徑請依你實際存放的位置調整
+import { BANNED_KEYWORDS } from '../constants';
+
 
 interface PostItemPageProps {
   onNavigate: (page: string) => void;
@@ -42,7 +43,10 @@ export function PostItemPage({ onNavigate, aiGeneratedData, previousPage = 'home
     }
     return '';
   };
-  // ------------------------------
+  useEffect(() => {
+    setNameError(checkForbiddenWords(title));
+    setDescError(checkForbiddenWords(description));
+  }, [title, description]);
   // 控制 AI 功能的 Loading 狀態
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);

@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
-import { BANNED_KEYWORDS } from '../constants'; // 路徑請依你實際存放的位置調整
+import { BANNED_KEYWORDS } from '../constants'; 
+
 
 interface EditProductPageProps {
     onNavigate: (page: string) => void;
@@ -49,7 +50,10 @@ export function EditProductPage({ onNavigate, productId }: EditProductPageProps)
         }
         return '';
     };
-    // ------------------------------
+    useEffect(() => {
+        setNameError(checkForbiddenWords(title));
+        setDescError(checkForbiddenWords(description));
+    }, [title, description]);
     useEffect(() => {
         const fetchProduct = async () => {
             try {
